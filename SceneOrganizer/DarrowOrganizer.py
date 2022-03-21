@@ -22,8 +22,8 @@ class DarrowOrganizePanel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_idname = "DARROW_PT_organizePanel"
 
-    def draw_header(self, context):
-       self.layout.label(text="",icon="LONGDISPLAY")
+    #def draw_header(self, context):
+       #self.layout.label(text="",icon="LONGDISPLAY")
 
     def draw(self, context):
         layout = self.layout
