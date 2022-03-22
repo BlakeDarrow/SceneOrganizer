@@ -2,12 +2,12 @@
 #-----------------------------------------------------#  
 #     Plugin information     
 #-----------------------------------------------------#  
-from bpy.types import Operator, AddonPreferences
-from bpy.props import StringProperty, IntProperty, BoolProperty, FloatProperty, EnumProperty
+from bpy.types import AddonPreferences
+from bpy.props import IntProperty, BoolProperty
 bl_info = {
     "name": "Scene Organizer",
     "author": "Blake Darrow",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > Darrow Toolkit",
     "description": "Adds panel for scene organization.",
@@ -18,7 +18,7 @@ bl_info = {
 #-----------------------------------------------------#  
 #     add all new scripts to this string    
 #-----------------------------------------------------#   
-modulesNames = ['DarrowOrganizer',]
+
 
 #-----------------------------------------------------#  
 #     imports    
@@ -27,6 +27,10 @@ import bpy
 from . import addon_updater_ops
 import sys
 import importlib
+if __package__ != "scene_organizer":
+    sys.modules["scene_organizer"] = sys.modules[__package__]
+
+modulesNames = ['DarrowOrganizer',]
 
 @addon_updater_ops.make_annotations
 class DarrowAddonPreferences(AddonPreferences):
