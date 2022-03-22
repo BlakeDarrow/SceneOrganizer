@@ -22,35 +22,36 @@ class DarrowOrganizePanel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_idname = "DARROW_PT_organizePanel"
 
-    def draw_header(self, context):
-       self.layout.label(text="",icon="LONGDISPLAY")
-
     def draw(self, context):
         layout = self.layout
         col = layout.column(align=True)
         col.scale_y = 1.33
-        col.label(text="Create Collections", icon="OUTLINER_COLLECTION")
-        cf2 = layout.column_flow(columns=2, align=True)
-        cf2.scale_y = 1.33
-        cf2.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
-        cf2.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
-        col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Outliner Options", icon="OUTLINER")
-        col.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
-        col.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
-        #col.separator()
-        col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Viewport Options", icon="MENU_PANEL")
-        col.operator('set.wireframe', text="Wireframe", icon="FILE_3D")
+        col.label(text="Outliner Options")
+        #col.label(text="Outliner Options", icon="OUTLINER")
         cf = layout.column_flow(columns=2, align=True)
         cf.scale_y = 1.33
-        cf.operator('darrow.toggle_cutters',
+        cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
+        cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
+        col = layout.column(align=True)
+        col.scale_y = 1.33
+        col.label(text="Viewport Options")
+        #col.label(text="Viewport Options", icon="MENU_PANEL")
+        col.operator('set.wireframe', text="Wireframe", icon="FILE_3D")
+        cf2 = layout.column_flow(columns=2, align=True)
+        cf2.scale_y = 1.33
+        cf2.operator('darrow.toggle_cutters',
                     text="Booleans", icon="MOD_BOOLEAN",)
-        cf.operator('darrow.toggle_random', icon="MATFLUID")
-        cf.operator('darrow.toggle_empty', text="Empties", icon="EMPTY_AXIS")
-        cf.operator('darrow.toggle_material', icon="SHADING_TEXTURE")
+        cf2.operator('darrow.toggle_random', icon="MATFLUID")
+        cf2.operator('darrow.toggle_empty', text="Empties", icon="EMPTY_AXIS")
+        cf2.operator('darrow.toggle_material', icon="SHADING_TEXTURE")
+        col = layout.column(align=True)
+        col.scale_y = 1.33
+        col.label(text="Sort Objects")
+        #col.label(text="Sort Objects", icon="OUTLINER_COLLECTION")
+        cf3 = layout.column_flow(columns=2, align=True)
+        cf3.scale_y = 1.33
+        cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
+        cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
 
 def toggle_expand(context, state):
     area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
