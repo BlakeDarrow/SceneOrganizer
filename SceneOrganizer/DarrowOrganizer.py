@@ -54,7 +54,13 @@ class OrganizerSettings(bpy.types.PropertyGroup):
 #-----------------------------------------------------#         
 #     handles ui panel 
 #-----------------------------------------------------#  
-class DarrowOrganizePanel(bpy.types.Panel):
+
+class DarrowOrganizePanel():
+    bl_category = "DarrowToolkit"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+
+class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
     bl_label = "Scene Organizer"
     bl_category = "DarrowToolkit"
     bl_space_type = "VIEW_3D"
@@ -65,35 +71,74 @@ class DarrowOrganizePanel(bpy.types.Panel):
         layout = self.layout
         scn = bpy.context.scene
         col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Outliner Options")
-        cf = layout.column_flow(columns=2, align=True)
-        cf.scale_y = 1.33
-        cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
-        cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
+        col.scale_y = 1
+        col.label(text="New Collection by Type")
+        cf3 = layout.box().column_flow(columns=2, align=True)
+        cf3.scale_y = 1.33
+        cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
+        cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
+
         col = layout.column(align=True)
-        col.scale_y = 1.33
+        col.scale_y = 1
         col.label(text="Viewport Options")
-        col.prop(scn.my_settings, 'wireframeVis', toggle=True, text = "Wireframe", icon = "FILE_3D")
-        cf2 = layout.column_flow(columns=2, align=True)
+        cf2 = layout.box().column_flow(columns=2, align=True)
         cf2.scale_y = 1.33
         cf2.prop(scn.my_settings, 'booleanVis', toggle=True, text = "Booleans", icon = "MOD_BOOLEAN")
         rand = cf2.column(align=True)
         rand.prop(scn.my_settings, 'randomVis', toggle=True, text = "Random", icon = "MATFLUID")
+        cf2.prop(scn.my_settings, 'wireframeVis', toggle=True, text = "Wireframe", icon = "FILE_3D")
         cf2.prop(scn.my_settings, 'emptiesVis', toggle=True, text = "Empties", icon = "EMPTY_AXIS")
+
         mat = cf2.column(align=True)
         mat.prop(scn.my_settings, 'materialVis', toggle=True, text = "Material", icon = "SHADING_TEXTURE")
+       
         if scn.my_settings.randomVis == True:
                 mat.enabled = False
         if scn.my_settings.materialVis == True:
                 rand.enabled = False
-        col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Sort Objects")
-        cf3 = layout.column_flow(columns=2, align=True)
-        cf3.scale_y = 1.33
-        cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
-        cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
+
+class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
+    bl_parent_id = "DARROW_PT_organizePanel"
+    bl_label = "Outliner Options"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        cf = layout.column_flow(columns=2, align=True)
+        cf.scale_y = 1.33
+        cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
+        cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
+        col = layout.row()
+        col.prop(context.scene,'iconOnly_Bool', text ="Only icons in header")
+       
+class ORGANIZER_OT_Dummy(bpy.types.Operator):
+    bl_idname = "organizer.dummy"
+    bl_label = ""
+    bl_description = ""
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return False
+
+    def execute(self, context):
+        return {'FINISHED'}
+
+def collapse_pop_up(self, context):
+    layout = self.layout
+    box = layout.box()
+    row = box.row(align=False)
+    if bpy.context.scene.iconOnly_Bool == False:
+        text_1 = "Collapse"
+        text_2 = "Sort"
+    else:
+        text_1 = ""
+        text_2 = ""
+
+    row.operator('collapse.scene', icon='SORT_ASC', text = text_1,emboss = False)
+    box = layout.box()
+    row = box.row(align=False)
+    row.operator('darrow.sort_outliner', icon='SORTALPHA', text = text_2,emboss = False)
 
 #-----------------------------------------------------#
 #    Sort outliner
@@ -102,10 +147,9 @@ class DarrowSort(bpy.types.Operator):
     bl_label = "Sort Outliner"
     bl_idname = "darrow.sort_outliner"
     bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "sort outliner"
+    bl_description = "Sort Outliner"
 
     def execute(self,context):
-
         case_sensitive = False
         for scene in bpy.data.scenes:
             sort_collection(scene.collection, case_sensitive)
@@ -310,11 +354,13 @@ def sort_collection(collection, case=False):
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
-classes = (OrganizerSettings,DarrowSort,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe, DarrowOrganizePanel,)
+classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+
+    bpy.types.OUTLINER_HT_header.prepend(collapse_pop_up)
 
     bpy.types.Scene.my_settings = bpy.props.PointerProperty(type=OrganizerSettings)
 
@@ -322,6 +368,12 @@ def register():
         name="Vis Bool",
         description="Toggle visibility of cutters",
         default=True
+    )
+
+    bpy.types.Scene.iconOnly_Bool = bpy.props.BoolProperty(
+        name="",
+        description="Show only icons in outliner header",
+        default=False
     )
     bpy.types.Scene.emptyVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
@@ -351,6 +403,8 @@ def unregister():
 
     for cls in classes:
         bpy.utils.unregister_class(cls)
+        
+    bpy.types.OUTLINER_HT_header.remove(collapse_pop_up)
 
 if __name__ == "__main__":
     register()
