@@ -76,6 +76,8 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         cf3.scale_y = 1.33
         cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
         cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
+        if context.mode != 'OBJECT':
+            cf3.enabled = False
 
         col = layout.column(align=True)
         col.scale_y = 1
@@ -108,7 +110,7 @@ class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
         cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
         cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
         col = layout.row()
-        col.prop(context.scene,'iconOnly_Bool', text ="Only icons in header")
+        col.prop(context.scene,'iconOnly_Bool', text ="Show only icons")
        
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
@@ -287,18 +289,21 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
                     bools.append(mods.object)
 
         if collectionFound == False and not len(bools) == 0:
-                empty_collection = bpy.data.collections.new(empty_collection_name)
-                bpy.context.scene.collection.children.link(empty_collection)
-                bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
-                
+            empty_collection = bpy.data.collections.new(empty_collection_name)
+            bpy.context.scene.collection.children.link(empty_collection)
+            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
         else:
             self.report({'WARNING'}, "No boolean cutters left to sort")
-        
-        for obj in bools:
-            for coll in obj.users_collection:
-                coll.objects.unlink(obj)
-            bpy.data.collections[empty_collection_name].objects.link(obj)
-        self.report({'INFO'}, "Moved all booleans")
+        if len(bools) != 0:
+            
+            for obj in bools:
+                print(obj)
+                if obj is not None:
+                    for coll in obj.users_collection:
+                        coll.objects.unlink(obj)
+                    
+                    bpy.data.collections[empty_collection_name].objects.link(obj)
+            self.report({'INFO'}, "Moved all booleans")
        
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -338,12 +343,13 @@ class DarrowSetCollection(bpy.types.Operator):
             bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
         else:
             self.report({'WARNING'}, "No empties left to sort")
-
-        for obj in empties:
-            for coll in obj.users_collection:
-                coll.objects.unlink(obj)
-            bpy.data.collections[empty_collection_name].objects.link(obj)
-        self.report({'INFO'}, "Moved all empties")
+        if len(empties) != 0:
+            for obj in empties:
+                if obj is not None:
+                    for coll in obj.users_collection:
+                        coll.objects.unlink(obj)
+                    bpy.data.collections[empty_collection_name].objects.link(obj)
+            self.report({'INFO'}, "Moved all empties")
     
         bpy.ops.object.select_all(action='DESELECT')
 
