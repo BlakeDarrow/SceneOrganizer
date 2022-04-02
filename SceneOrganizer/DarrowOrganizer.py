@@ -173,9 +173,9 @@ class DarrowToggleCutters(bpy.types.Operator):
                     vlayer = bpy.context.scene.view_layers["View Layer"]
                 except:
                     vlayer = bpy.context.scene.view_layers["ViewLayer"]
-
-                vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
-                vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+                if str(ob.users_collection[0].name) == "Darrow_Booleans":
+                    vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
+                    vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
 
                 ob.hide_set(bpy.context.scene.cutterVis_Bool)
                 ob.hide_set(not bpy.context.scene.cutterVis_Bool)
@@ -202,12 +202,13 @@ class DarrowToggleEmpty(bpy.types.Operator):
                     vlayer = bpy.context.scene.view_layers["View Layer"]
                 except:
                     vlayer = bpy.context.scene.view_layers["ViewLayer"]
-
-                vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
-                vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+                if str(ob.users_collection[0].name) == "Darrow_Empties":
+                    vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
+                    vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
 
                 ob.hide_set(bpy.context.scene.emptyVis_Bool)
                 ob.hide_set(not bpy.context.scene.emptyVis_Bool)
+
             
         return {'FINISHED'}
 
