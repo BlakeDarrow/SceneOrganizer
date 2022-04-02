@@ -8,14 +8,58 @@
 #   Imports
 #-----------------------------------------------------# 
 import bpy
+from bpy.props import StringProperty, BoolProperty, PointerProperty
 from bpy.types import (Panel,
                        Menu,
                        Operator,
                        )
+def updateBooleanVisibility(self, context):
+    DarrowToggleCutters.execute(self,context)
+
+def updateEmptiesVisibility(self, context):
+    DarrowToggleEmpty.execute(self,context)
+
+def updateRandomVisibility(self, context):
+    bpy.context.space_data.shading.color_type = 'RANDOM'
+    
+def updateMaterialVisibility(self, context):
+    bpy.context.space_data.shading.color_type = 'MATERIAL'
+
+def updateWireframeVisibility(self, context):
+    DarrowWireframe.execute(self,context)
+
+class OrganizerSettings(bpy.types.PropertyGroup):
+    booleanVis : BoolProperty(
+        name = "Boolean Visibility",
+        update = updateBooleanVisibility,
+    )
+    emptiesVis : BoolProperty(
+        name = "Empties Visibility",
+        update = updateEmptiesVisibility,
+    )
+    randomVis : BoolProperty(
+        name = "Random Visibility",
+        update = updateRandomVisibility,
+    )
+    materialVis : BoolProperty(
+        name = "Material Visibility",
+        update = updateMaterialVisibility,
+    )
+    wireframeVis : BoolProperty(
+        name = "Wireframe Visibility",
+        update = updateWireframeVisibility,
+    )
+
 #-----------------------------------------------------#         
 #     handles ui panel 
 #-----------------------------------------------------#  
-class DarrowOrganizePanel(bpy.types.Panel):
+
+class DarrowOrganizePanel():
+    bl_category = "DarrowToolkit"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+
+class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
     bl_label = "Scene Organizer"
     bl_category = "DarrowToolkit"
     bl_space_type = "VIEW_3D"
@@ -24,82 +68,78 @@ class DarrowOrganizePanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        scn = bpy.context.scene
         col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Outliner Options")
-        #col.label(text="Outliner Options", icon="OUTLINER")
+        col.scale_y = 1
+        col.label(text="Sort Objects by Type")
+        cf3 = layout.box().column_flow(columns=2, align=True)
+        cf3.scale_y = 1.33
+        cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
+        cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
+        if context.mode != 'OBJECT':
+            cf3.enabled = False
+
+        col = layout.column(align=True)
+        col.scale_y = 1
+        col.label(text="Viewport Options")
+        cf2 = layout.box().column_flow(columns=2, align=True)
+        cf2.scale_y = 1.33
+        cf2.prop(scn.my_settings, 'booleanVis', toggle=True, text = "Booleans", icon = "MOD_BOOLEAN")
+        rand = cf2.column(align=True)
+        rand.prop(scn.my_settings, 'randomVis', toggle=True, text = "Random", icon = "MATFLUID")
+        cf2.prop(scn.my_settings, 'wireframeVis', toggle=True, text = "Wireframe", icon = "FILE_3D")
+        cf2.prop(scn.my_settings, 'emptiesVis', toggle=True, text = "Empties", icon = "EMPTY_AXIS")
+
+        mat = cf2.column(align=True)
+        mat.prop(scn.my_settings, 'materialVis', toggle=True, text = "Material", icon = "SHADING_TEXTURE")
+
+        if scn.my_settings.randomVis == True:
+                mat.enabled = False
+        if scn.my_settings.materialVis == True:
+                rand.enabled = False
+
+class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
+    bl_parent_id = "DARROW_PT_organizePanel"
+    bl_label = "Outliner Options"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
         cf = layout.column_flow(columns=2, align=True)
         cf.scale_y = 1.33
         cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
         cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
-        col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Viewport Options")
-        #col.label(text="Viewport Options", icon="MENU_PANEL")
-        col.operator('set.wireframe', text="Wireframe", icon="FILE_3D")
-        cf2 = layout.column_flow(columns=2, align=True)
-        cf2.scale_y = 1.33
-        cf2.operator('darrow.toggle_cutters',
-                    text="Booleans", icon="MOD_BOOLEAN",)
-        cf2.operator('darrow.toggle_random', icon="MATFLUID")
-        cf2.operator('darrow.toggle_empty', text="Empties", icon="EMPTY_AXIS")
-        cf2.operator('darrow.toggle_material', icon="SHADING_TEXTURE")
-        col = layout.column(align=True)
-        col.scale_y = 1.33
-        col.label(text="Sort Objects")
-        #col.label(text="Sort Objects", icon="OUTLINER_COLLECTION")
-        cf3 = layout.column_flow(columns=2, align=True)
-        cf3.scale_y = 1.33
-        cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
-        cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
+        col = layout.row()
+        col.prop(context.scene,'iconOnly_Bool', text ="Show only icons")
+       
+class ORGANIZER_OT_Dummy(bpy.types.Operator):
+    bl_idname = "organizer.dummy"
+    bl_label = ""
+    bl_description = ""
+    bl_options = {"REGISTER"}
 
-def toggle_expand(context, state):
-    area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
-    bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
-    for i in range(state):
-        bpy.ops.outliner.expanded_toggle({'area': area})
-    area.tag_redraw()
-
-def sort_collection(collection, case=False):
-
-  if collection.children is None:
-      return
-
-  children = sorted(
-      collection.children,
-      key=lambda c: c.name if case else c.name.lower()
-  )
-
-  for child in children:
-    collection.children.unlink(child)
-    collection.children.link(child)
-    sort_collection(child)
-
-#-----------------------------------------------------#
-#    Toggle Random Shading
-#-----------------------------------------------------#
-class DarrowShadingRandom(bpy.types.Operator):
-    bl_label = "Random"
-    bl_idname = "darrow.toggle_random"
-    bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "Toggle the shading type."
+    @classmethod
+    def poll(cls, context):
+        return False
 
     def execute(self, context):
-        bpy.context.space_data.shading.color_type = 'RANDOM'
         return {'FINISHED'}
 
-#-----------------------------------------------------#
-#    Toggle Material Shading
-#-----------------------------------------------------#
-class DarrowShadingMaterial(bpy.types.Operator):
-    bl_label = "Material"
-    bl_idname = "darrow.toggle_material"
-    bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "Toggle the shading type."
+def collapse_pop_up(self, context):
+    layout = self.layout
+    box = layout.box()
+    row = box.row(align=False)
+    if bpy.context.scene.iconOnly_Bool == False:
+        text_1 = "Collapse"
+        text_2 = "Sort"
+    else:
+        text_1 = ""
+        text_2 = ""
 
-    def execute(self, context):
-        bpy.context.space_data.shading.color_type = 'MATERIAL'
-        return {'FINISHED'}
+    row.operator('collapse.scene', icon='SORT_ASC', text = text_1,emboss = False)
+    box = layout.box()
+    row = box.row(align=False)
+    row.operator('darrow.sort_outliner', icon='SORTALPHA', text = text_2,emboss = False)
 
 #-----------------------------------------------------#
 #    Sort outliner
@@ -108,10 +148,9 @@ class DarrowSort(bpy.types.Operator):
     bl_label = "Sort Outliner"
     bl_idname = "darrow.sort_outliner"
     bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "sort outliner"
+    bl_description = "Sort Outliner"
 
     def execute(self,context):
-
         case_sensitive = False
         for scene in bpy.data.scenes:
             sort_collection(scene.collection, case_sensitive)
@@ -131,10 +170,20 @@ class DarrowToggleCutters(bpy.types.Operator):
         print(bpy.context.scene.cutterVis_Bool)
         for ob in bpy.data.objects:
             if ob.display_type == 'BOUNDS':
-                ob.hide_viewport = bpy.context.scene.cutterVis_Bool
-                ob.hide_viewport = not ob.hide_viewport
+                parent = ob.users_collection[0].name
+                try:
+                    vlayer = bpy.context.scene.view_layers["View Layer"]
+                except:
+                    vlayer = bpy.context.scene.view_layers["ViewLayer"]
+                if str(ob.users_collection[0].name) == "Darrow_Booleans":
+                    vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
+                    vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+
+                ob.hide_set(bpy.context.scene.cutterVis_Bool)
+                ob.hide_set(not bpy.context.scene.cutterVis_Bool)
+
         return {'FINISHED'}
-#
+
 # -----------------------------------------------------#
 #    Toggle empty visibility
 #-----------------------------------------------------#
@@ -147,10 +196,22 @@ class DarrowToggleEmpty(bpy.types.Operator):
     def execute(self, context):
         bpy.context.scene.emptyVis_Bool = not bpy.context.scene.emptyVis_Bool
         print(bpy.context.scene.emptyVis_Bool)
+
         for ob in bpy.data.objects:
             if ob.type == 'EMPTY':
-                ob.hide_viewport = bpy.context.scene.emptyVis_Bool
-                ob.hide_viewport = not ob.hide_viewport
+                parent = ob.users_collection[0].name
+                try:
+                    vlayer = bpy.context.scene.view_layers["View Layer"]
+                except:
+                    vlayer = bpy.context.scene.view_layers["ViewLayer"]
+                if str(ob.users_collection[0].name) == "Darrow_Empties":
+                    vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
+                    vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+
+                ob.hide_set(bpy.context.scene.emptyVis_Bool)
+                ob.hide_set(not bpy.context.scene.emptyVis_Bool)
+
+            
         return {'FINISHED'}
 
 #-----------------------------------------------------#
@@ -198,7 +259,6 @@ class DarrowWireframe(bpy.types.Operator):
             bpy.context.space_data.overlay.show_object_origins = True
             bpy.context.space_data.overlay.show_wireframes = False
 
-        self.report({'INFO'}, "Viewport Wireframe only")
         return {'FINISHED'} 
     
 #-----------------------------------------------------#
@@ -229,24 +289,26 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
                     bools.append(mods.object)
 
         if collectionFound == False and not len(bools) == 0:
-                empty_collection = bpy.data.collections.new(empty_collection_name)
-                bpy.context.scene.collection.children.link(empty_collection)
-                bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
-                self.report({'INFO'}, "Moved all booleans")
+            empty_collection = bpy.data.collections.new(empty_collection_name)
+            bpy.context.scene.collection.children.link(empty_collection)
+            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
         else:
-            self.report({'WARNING'}, "No boolean cutters in scene to sort")
-        
-        for obj in bools:
-            for coll in obj.users_collection:
-                coll.objects.unlink(obj)
-            bpy.data.collections[empty_collection_name].objects.link(obj)
- 
+            self.report({'WARNING'}, "No boolean cutters left to sort")
+        if len(bools) != 0:
+            
+            for obj in bools:
+                print(obj)
+                if obj is not None:
+                    for coll in obj.users_collection:
+                        coll.objects.unlink(obj)
+                    
+                    bpy.data.collections[empty_collection_name].objects.link(obj)
+            self.report({'INFO'}, "Moved all booleans")
        
         bpy.ops.object.select_all(action='DESELECT')
 
         for x in old_obj:     
             x.select_set(state=True)
-
 
         return {'FINISHED'}
 
@@ -270,6 +332,7 @@ class DarrowSetCollection(bpy.types.Operator):
             if myCol.name == empty_collection_name:
                 collectionFound = True
                 break
+
         for obj in scene:
             if obj.type == "EMPTY":
                 empties.append(obj)
@@ -278,41 +341,73 @@ class DarrowSetCollection(bpy.types.Operator):
             empty_collection = bpy.data.collections.new(empty_collection_name)
             bpy.context.scene.collection.children.link(empty_collection)
             bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
-            self.report({'INFO'}, "Moved all empties")
         else:
-            self.report({'WARNING'}, "No empties in scene to sort")
-        
-        for obj in empties:
-            for coll in obj.users_collection:
-                coll.objects.unlink(obj)
-            bpy.data.collections[empty_collection_name].objects.link(obj)
-      
+            self.report({'WARNING'}, "No empties left to sort")
+        if len(empties) != 0:
+            for obj in empties:
+                if obj is not None:
+                    for coll in obj.users_collection:
+                        coll.objects.unlink(obj)
+                    bpy.data.collections[empty_collection_name].objects.link(obj)
+            self.report({'INFO'}, "Moved all empties")
+    
         bpy.ops.object.select_all(action='DESELECT')
 
         for x in old_obj:     
             x.select_set(state=True)
-
        
         return {'FINISHED'}
+
+def toggle_expand(context, state):
+    area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
+    bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
+    for i in range(state):
+        bpy.ops.outliner.expanded_toggle({'area': area})
+    area.tag_redraw()
+
+def sort_collection(collection, case=False):
+
+  if collection.children is None:
+      return
+
+  children = sorted(
+      collection.children,
+      key=lambda c: c.name if case else c.name.lower()
+  )
+
+  for child in children:
+    collection.children.unlink(child)
+    collection.children.link(child)
+    sort_collection(child)
 
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
-classes = (DarrowShadingMaterial,DarrowShadingRandom,DarrowSort,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe, DarrowOrganizePanel,)
+classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    bpy.types.OUTLINER_HT_header.prepend(collapse_pop_up)
+
+    bpy.types.Scene.my_settings = bpy.props.PointerProperty(type=OrganizerSettings)
+
     bpy.types.Scene.cutterVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of cutters",
-        default=True
+        default=False
+    )
+
+    bpy.types.Scene.iconOnly_Bool = bpy.props.BoolProperty(
+        name="",
+        description="Show only icons in outliner header",
+        default=False
     )
     bpy.types.Scene.emptyVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of empties",
-        default=True
+        default=False
     )
 
     bpy.types.Scene.parentcoll_string = bpy.props.StringProperty(
@@ -337,6 +432,8 @@ def unregister():
 
     for cls in classes:
         bpy.utils.unregister_class(cls)
+        
+    bpy.types.OUTLINER_HT_header.remove(collapse_pop_up)
 
 if __name__ == "__main__":
     register()
