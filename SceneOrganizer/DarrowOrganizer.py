@@ -13,7 +13,6 @@ from bpy.types import (Panel,
                        Menu,
                        Operator,
                        )
-
 def updateBooleanVisibility(self, context):
     DarrowToggleCutters.execute(self,context)
 
@@ -72,7 +71,7 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         scn = bpy.context.scene
         col = layout.column(align=True)
         col.scale_y = 1
-        col.label(text="New Collection by Type")
+        col.label(text="Sort Objects by Type")
         cf3 = layout.box().column_flow(columns=2, align=True)
         cf3.scale_y = 1.33
         cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
@@ -91,7 +90,7 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
 
         mat = cf2.column(align=True)
         mat.prop(scn.my_settings, 'materialVis', toggle=True, text = "Material", icon = "SHADING_TEXTURE")
-       
+
         if scn.my_settings.randomVis == True:
                 mat.enabled = False
         if scn.my_settings.materialVis == True:
@@ -169,10 +168,20 @@ class DarrowToggleCutters(bpy.types.Operator):
         print(bpy.context.scene.cutterVis_Bool)
         for ob in bpy.data.objects:
             if ob.display_type == 'BOUNDS':
-                ob.hide_viewport = bpy.context.scene.cutterVis_Bool
-                ob.hide_viewport = not ob.hide_viewport
+                parent = ob.users_collection[0].name
+                try:
+                    vlayer = bpy.context.scene.view_layers["View Layer"]
+                except:
+                    vlayer = bpy.context.scene.view_layers["ViewLayer"]
+
+                vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
+                vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+
+                ob.hide_set(bpy.context.scene.cutterVis_Bool)
+                ob.hide_set(not bpy.context.scene.cutterVis_Bool)
+
         return {'FINISHED'}
-#
+
 # -----------------------------------------------------#
 #    Toggle empty visibility
 #-----------------------------------------------------#
@@ -185,10 +194,21 @@ class DarrowToggleEmpty(bpy.types.Operator):
     def execute(self, context):
         bpy.context.scene.emptyVis_Bool = not bpy.context.scene.emptyVis_Bool
         print(bpy.context.scene.emptyVis_Bool)
+
         for ob in bpy.data.objects:
             if ob.type == 'EMPTY':
-                ob.hide_viewport = bpy.context.scene.emptyVis_Bool
-                ob.hide_viewport = not ob.hide_viewport
+                parent = ob.users_collection[0].name
+                try:
+                    vlayer = bpy.context.scene.view_layers["View Layer"]
+                except:
+                    vlayer = bpy.context.scene.view_layers["ViewLayer"]
+
+                vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
+                vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+
+                ob.hide_set(bpy.context.scene.emptyVis_Bool)
+                ob.hide_set(not bpy.context.scene.emptyVis_Bool)
+            
         return {'FINISHED'}
 
 #-----------------------------------------------------#
@@ -269,14 +289,15 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
                 empty_collection = bpy.data.collections.new(empty_collection_name)
                 bpy.context.scene.collection.children.link(empty_collection)
                 bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
-                self.report({'INFO'}, "Moved all booleans")
-
-                for obj in bools:
-                    for coll in obj.users_collection:
-                        coll.objects.unlink(obj)
-                    bpy.data.collections[empty_collection_name].objects.link(obj)
+                
         else:
             self.report({'WARNING'}, "No boolean cutters left to sort")
+        
+        for obj in bools:
+            for coll in obj.users_collection:
+                coll.objects.unlink(obj)
+            bpy.data.collections[empty_collection_name].objects.link(obj)
+        self.report({'INFO'}, "Moved all booleans")
        
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -305,6 +326,7 @@ class DarrowSetCollection(bpy.types.Operator):
             if myCol.name == empty_collection_name:
                 collectionFound = True
                 break
+
         for obj in scene:
             if obj.type == "EMPTY":
                 empties.append(obj)
@@ -313,14 +335,14 @@ class DarrowSetCollection(bpy.types.Operator):
             empty_collection = bpy.data.collections.new(empty_collection_name)
             bpy.context.scene.collection.children.link(empty_collection)
             bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
-
-            for obj in empties:
-                for coll in obj.users_collection:
-                    coll.objects.unlink(obj)
-                bpy.data.collections[empty_collection_name].objects.link(obj)
-            self.report({'INFO'}, "Moved all empties")
         else:
             self.report({'WARNING'}, "No empties left to sort")
+
+        for obj in empties:
+            for coll in obj.users_collection:
+                coll.objects.unlink(obj)
+            bpy.data.collections[empty_collection_name].objects.link(obj)
+        self.report({'INFO'}, "Moved all empties")
     
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -367,7 +389,7 @@ def register():
     bpy.types.Scene.cutterVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of cutters",
-        default=True
+        default=False
     )
 
     bpy.types.Scene.iconOnly_Bool = bpy.props.BoolProperty(
@@ -378,7 +400,7 @@ def register():
     bpy.types.Scene.emptyVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of empties",
-        default=True
+        default=False
     )
 
     bpy.types.Scene.parentcoll_string = bpy.props.StringProperty(
