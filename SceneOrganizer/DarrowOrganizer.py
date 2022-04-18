@@ -55,13 +55,13 @@ class OrganizerSettings(bpy.types.PropertyGroup):
 #-----------------------------------------------------#  
 
 class DarrowOrganizePanel():
-    bl_category = "DarrowToolkit"
+    bl_category = "DarrowTools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
 
 class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
     bl_label = "Scene Organizer"
-    bl_category = "DarrowToolkit"
+    bl_category = "DarrowTools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_idname = "DARROW_PT_organizePanel"
@@ -163,7 +163,7 @@ class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
     bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "Toggle the visabilty of boolean cutters."
+    bl_description = "Toggle the visibility of boolean cutters."
 
     def execute(self, context):
         bpy.context.scene.cutterVis_Bool = not bpy.context.scene.cutterVis_Bool
@@ -191,7 +191,7 @@ class DarrowToggleEmpty(bpy.types.Operator):
     bl_label = "Toggle Empty"
     bl_idname = "darrow.toggle_empty"
     bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "Toggle the visabilty of empties"
+    bl_description = "Toggle the visibility of empties"
 
     def execute(self, context):
         bpy.context.scene.emptyVis_Bool = not bpy.context.scene.emptyVis_Bool
