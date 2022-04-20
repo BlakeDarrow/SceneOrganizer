@@ -1,12 +1,26 @@
-#-----------------------------------------------------#  
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
-#    Copyright (c) 2022 Blake Darrow <contact@blakedarrow.com>
+#   Copyright (C) 2022  Blake Darrow <contact@blakedarrow.com>
 #
-#    See the LICENSE file for your full rights.
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 #
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ##### END GPL LICENSE BLOCK #####
+
 #-----------------------------------------------------#  
 #   Imports
 #-----------------------------------------------------# 
+from re import search
 import bpy
 from bpy.props import StringProperty, BoolProperty, PointerProperty
 from bpy.types import (Panel,
@@ -92,7 +106,7 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
 
         mat = cf2.column(align=True)
         mat.prop(scn.my_settings, 'materialVis', toggle=True, text = "Material", icon = "SHADING_TEXTURE")
-
+        
         if scn.my_settings.randomVis == True:
                 mat.enabled = False
         if scn.my_settings.materialVis == True:
@@ -108,10 +122,16 @@ class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
         cf = layout.column_flow(columns=2, align=True)
         cf.scale_y = 1.33
         cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
+        cf.operator('darrow.rename_high', text="_High")
         cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
+        cf.operator('darrow.rename_low', text="_Low")
+        row = layout.row()
+        row.scale_y = 1.33
+        row.operator('darrow.rename_clean', text="Strip Selected Names")
+
         col = layout.row()
         col.prop(context.scene,'iconOnly_Bool', text ="Show only icons")
-       
+        
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
     bl_label = ""
@@ -153,8 +173,65 @@ class DarrowSort(bpy.types.Operator):
     def execute(self,context):
         case_sensitive = False
         for scene in bpy.data.scenes:
-            sort_collection(scene.collection, case_sensitive)
+            store_coll_state(scene.collection, case_sensitive)
         return {'FINISHED'}
+
+#-----------------------------------------------------#
+#    Rename selected
+#-----------------------------------------------------#
+class DarrowRenameSelectedHigh(bpy.types.Operator):
+    bl_label = "Rename as high"
+    bl_idname = "darrow.rename_high"
+    bl_description = "Rename selected as high"
+    bl_options = {'UNDO'}
+
+    def execute(self,context):
+        objs = bpy.context.selected_objects
+        for obj in objs:
+            add_suffix(obj, "_high")
+        return {'FINISHED'}
+
+class DarrowRenameSelectedLow(bpy.types.Operator):
+    bl_label = "Rename as low"
+    bl_idname = "darrow.rename_low"
+    bl_description = "Rename selected as low"
+    bl_options = {'UNDO'}
+
+    def execute(self,context):
+        objs = bpy.context.selected_objects
+        for obj in objs:
+            add_suffix(obj, "_low")
+        return {'FINISHED'}
+
+class DarrowCleanName(bpy.types.Operator):
+    bl_label = "Strip names"
+    bl_idname = "darrow.rename_clean"
+    bl_description = "Replace '.' with '_', and remove '0'"
+    bl_options = {'UNDO'}
+
+    def execute(self,context):
+        objs = bpy.context.selected_objects
+        for obj in objs:
+            strip(obj)
+        return {'FINISHED'}
+
+def strip(obj):
+    name = obj.name
+    stripped = name.replace(".","_")
+    remove_dbl = stripped.replace("__","_")
+    remove_char = remove_dbl.replace("0","")
+    remove_high = remove_char.replace("_high","")
+    remove_low = remove_high.replace("_low","")
+    obj.name = remove_low
+    return obj.name
+
+def add_suffix(obj, suffix):
+    strip(obj)
+    remove_high = obj.name.replace("_high","")
+    remove_low = remove_high.replace("_low","")
+    add_suffix = remove_low + suffix
+    obj.name = add_suffix
+    return obj.name
 
 #-----------------------------------------------------#
 #    Toggle cutter visibility
@@ -171,13 +248,10 @@ class DarrowToggleCutters(bpy.types.Operator):
         for ob in bpy.data.objects:
             if ob.display_type == 'BOUNDS':
                 parent = ob.users_collection[0].name
-                try:
-                    vlayer = bpy.context.scene.view_layers["View Layer"]
-                except:
-                    vlayer = bpy.context.scene.view_layers["ViewLayer"]
+                
                 if str(ob.users_collection[0].name) == "Darrow_Booleans":
-                    vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
-                    vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+                   bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
+                   bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
 
                 ob.hide_set(bpy.context.scene.cutterVis_Bool)
                 ob.hide_set(not bpy.context.scene.cutterVis_Bool)
@@ -200,18 +274,14 @@ class DarrowToggleEmpty(bpy.types.Operator):
         for ob in bpy.data.objects:
             if ob.type == 'EMPTY':
                 parent = ob.users_collection[0].name
-                try:
-                    vlayer = bpy.context.scene.view_layers["View Layer"]
-                except:
-                    vlayer = bpy.context.scene.view_layers["ViewLayer"]
+        
                 if str(ob.users_collection[0].name) == "Darrow_Empties":
-                    vlayer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
-                    vlayer.layer_collection.children[parent].hide_viewport = not vlayer.layer_collection.children[parent].hide_viewport
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
 
                 ob.hide_set(bpy.context.scene.emptyVis_Bool)
                 ob.hide_set(not bpy.context.scene.emptyVis_Bool)
 
-            
         return {'FINISHED'}
 
 #-----------------------------------------------------#
@@ -287,6 +357,9 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
             for mods in obj.modifiers:
                 if mods.type == 'BOOLEAN':
                     bools.append(mods.object)
+        
+            if obj.display_type == 'BOUNDS':
+                bools.append(obj)
 
         if collectionFound == False and not len(bools) == 0:
             empty_collection = bpy.data.collections.new(empty_collection_name)
@@ -295,7 +368,6 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
         else:
             self.report({'WARNING'}, "No boolean cutters left to sort")
         if len(bools) != 0:
-            
             for obj in bools:
                 print(obj)
                 if obj is not None:
@@ -365,6 +437,35 @@ def toggle_expand(context, state):
         bpy.ops.outliner.expanded_toggle({'area': area})
     area.tag_redraw()
 
+
+def traverse_tree(t):
+    yield t
+    for child in t.children:
+        yield from traverse_tree(child)
+
+def store_coll_state(collection, case=False):
+    coll = bpy.context.scene.collection
+    colls = []
+    states = []
+    
+    for c in traverse_tree(coll):
+        if c.name in bpy.context.view_layer.layer_collection.children:
+            print(c.name)
+            state = bpy.context.view_layer.layer_collection.children[c.name].hide_viewport 
+
+            if c.name not in colls:
+                colls.append(c.name)
+                states.append(state)
+
+    print(colls)
+    print(states)
+
+    sort_collection(bpy.context.scene.collection, False)
+
+    for x in range(0,len(colls)):
+        bpy.context.view_layer.layer_collection.children[colls[x]].hide_viewport = states[x]
+
+
 def sort_collection(collection, case=False):
 
   if collection.children is None:
@@ -383,7 +484,7 @@ def sort_collection(collection, case=False):
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
-classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
+classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
 
 def register():
     for cls in classes:
