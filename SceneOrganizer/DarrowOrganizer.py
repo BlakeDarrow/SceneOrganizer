@@ -20,7 +20,7 @@
 #-----------------------------------------------------#  
 #   Imports
 #-----------------------------------------------------# 
-from re import search
+from re import S, search
 import bpy
 from bpy.props import StringProperty, BoolProperty, PointerProperty
 from bpy.types import (Panel,
@@ -215,22 +215,30 @@ class DarrowCleanName(bpy.types.Operator):
             strip(obj)
         return {'FINISHED'}
 
-def strip(obj):
+def strip(obj): #Double check this to make sure it works
     name = obj.name
-    stripped = name.replace(".","_")
-    remove_dbl = stripped.replace("__","_")
-    remove_char = remove_dbl.replace("0","")
-    remove_high = remove_char.replace("_high","")
-    remove_low = remove_high.replace("_low","")
-    obj.name = remove_low
+    name = name + "temp"
+    replaceList = (".","__","0","_high", "_low")
+
+    head, sep, tail = name.partition("_low")
+    if not tail:
+        head, sep, tail = name.partition("_high")
+
+    for word in replaceList:
+        name = head.replace(word, "")
+        
+    name = name.replace("temp","")
+    obj.name = name
     return obj.name
 
 def add_suffix(obj, suffix):
     strip(obj)
-    remove_high = obj.name.replace("_high","")
-    remove_low = remove_high.replace("_low","")
-    add_suffix = remove_low + suffix
-    obj.name = add_suffix
+
+    name = obj.name + "tmp"
+    name = name + suffix
+    name = name.replace("tmp", "")
+
+    obj.name = name
     return obj.name
 
 #-----------------------------------------------------#
