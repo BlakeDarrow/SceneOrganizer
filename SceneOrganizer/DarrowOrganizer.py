@@ -20,13 +20,9 @@
 #-----------------------------------------------------#  
 #   Imports
 #-----------------------------------------------------# 
-from re import search
 import bpy
-from bpy.props import StringProperty, BoolProperty, PointerProperty
-from bpy.types import (Panel,
-                       Menu,
-                       Operator,
-                       )
+from bpy.props import BoolProperty
+
 def updateBooleanVisibility(self, context):
     DarrowToggleCutters.execute(self,context)
 
@@ -41,6 +37,97 @@ def updateMaterialVisibility(self, context):
 
 def updateWireframeVisibility(self, context):
     DarrowWireframe.execute(self,context)
+
+def toggle_expand(context, state):
+    area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
+    bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
+    for i in range(state):
+        bpy.ops.outliner.expanded_toggle({'area': area})
+    area.tag_redraw()
+
+def traverse_tree(t):
+    yield t
+    for child in t.children:
+        yield from traverse_tree(child)
+
+def store_coll_state(collection, case=False):
+    coll = bpy.context.scene.collection
+    colls = []
+    states = []
+    
+    for c in traverse_tree(coll):
+        if c.name in bpy.context.view_layer.layer_collection.children:
+            print(c.name)
+            state = bpy.context.view_layer.layer_collection.children[c.name].hide_viewport 
+
+            if c.name not in colls:
+                colls.append(c.name)
+                states.append(state)
+
+    print(colls)
+    print(states)
+
+    sort_collection(bpy.context.scene.collection, False)
+
+    for x in range(0,len(colls)):
+        bpy.context.view_layer.layer_collection.children[colls[x]].hide_viewport = states[x]
+
+def sort_collection(collection, case=False):
+
+  if collection.children is None:
+      return
+
+  children = sorted(
+      collection.children,
+      key=lambda c: c.name if case else c.name.lower()
+  )
+
+  for child in children:
+    collection.children.unlink(child)
+    collection.children.link(child)
+    sort_collection(child)
+
+def strip(obj): 
+    name = obj.name
+    name = name + "temp"
+    replaceList = (".","__","0","_high", "_low")
+
+    head, sep, tail = name.partition("_low")
+    if not tail:
+        head, sep, tail = name.partition("_high")
+
+    for word in replaceList:
+        name = head.replace(word, "")
+        
+    name = name.replace("temp","")
+    obj.name = name
+    return obj.name
+
+def add_suffix(obj, suffix):
+    strip(obj)
+
+    name = obj.name + "tmp"
+    name = name + suffix
+    name = name.replace("tmp", "")
+
+    obj.name = name
+    return obj.name
+
+def collapse_pop_up(self, context):
+    layout = self.layout
+    box = layout.box()
+    row = box.row(align=False)
+    if bpy.context.scene.iconOnly_Bool == False:
+        text_1 = "Collapse"
+        text_2 = "Sort"
+    else:
+        text_1 = ""
+        text_2 = ""
+
+    row.operator('collapse.scene', icon='SORT_ASC', text = text_1,emboss = False)
+    box = layout.box()
+    row = box.row(align=False)
+    row.operator('darrow.sort_outliner', icon='SORTALPHA', text = text_2,emboss = False)
 
 class OrganizerSettings(bpy.types.PropertyGroup):
     booleanVis : BoolProperty(
@@ -63,10 +150,6 @@ class OrganizerSettings(bpy.types.PropertyGroup):
         name = "Wireframe Visibility",
         update = updateWireframeVisibility,
     )
-
-#-----------------------------------------------------#         
-#     handles ui panel 
-#-----------------------------------------------------#  
 
 class DarrowOrganizePanel():
     bl_category = "DarrowTools"
@@ -145,25 +228,6 @@ class ORGANIZER_OT_Dummy(bpy.types.Operator):
     def execute(self, context):
         return {'FINISHED'}
 
-def collapse_pop_up(self, context):
-    layout = self.layout
-    box = layout.box()
-    row = box.row(align=False)
-    if bpy.context.scene.iconOnly_Bool == False:
-        text_1 = "Collapse"
-        text_2 = "Sort"
-    else:
-        text_1 = ""
-        text_2 = ""
-
-    row.operator('collapse.scene', icon='SORT_ASC', text = text_1,emboss = False)
-    box = layout.box()
-    row = box.row(align=False)
-    row.operator('darrow.sort_outliner', icon='SORTALPHA', text = text_2,emboss = False)
-
-#-----------------------------------------------------#
-#    Sort outliner
-#-----------------------------------------------------#
 class DarrowSort(bpy.types.Operator):
     bl_label = "Sort Outliner"
     bl_idname = "darrow.sort_outliner"
@@ -176,9 +240,6 @@ class DarrowSort(bpy.types.Operator):
             store_coll_state(scene.collection, case_sensitive)
         return {'FINISHED'}
 
-#-----------------------------------------------------#
-#    Rename selected
-#-----------------------------------------------------#
 class DarrowRenameSelectedHigh(bpy.types.Operator):
     bl_label = "Rename as high"
     bl_idname = "darrow.rename_high"
@@ -215,27 +276,6 @@ class DarrowCleanName(bpy.types.Operator):
             strip(obj)
         return {'FINISHED'}
 
-def strip(obj):
-    name = obj.name
-    stripped = name.replace(".","_")
-    remove_dbl = stripped.replace("__","_")
-    remove_char = remove_dbl.replace("0","")
-    remove_high = remove_char.replace("_high","")
-    remove_low = remove_high.replace("_low","")
-    obj.name = remove_low
-    return obj.name
-
-def add_suffix(obj, suffix):
-    strip(obj)
-    remove_high = obj.name.replace("_high","")
-    remove_low = remove_high.replace("_low","")
-    add_suffix = remove_low + suffix
-    obj.name = add_suffix
-    return obj.name
-
-#-----------------------------------------------------#
-#    Toggle cutter visibility
-#-----------------------------------------------------#
 class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
@@ -258,9 +298,6 @@ class DarrowToggleCutters(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# -----------------------------------------------------#
-#    Toggle empty visibility
-#-----------------------------------------------------#
 class DarrowToggleEmpty(bpy.types.Operator):
     bl_label = "Toggle Empty"
     bl_idname = "darrow.toggle_empty"
@@ -284,9 +321,6 @@ class DarrowToggleEmpty(bpy.types.Operator):
 
         return {'FINISHED'}
 
-#-----------------------------------------------------#
-#     Collapse outliner
-#-----------------------------------------------------#
 class DarrowCollapseOutliner(bpy.types.Operator):
     bl_label = "Collapse Outliner"
     bl_idname = "collapse.scene"
@@ -295,10 +329,7 @@ class DarrowCollapseOutliner(bpy.types.Operator):
     def execute(self, context):
         toggle_expand(context, 2)
         return {'FINISHED'}
-
-#-----------------------------------------------------#  
-#     handles wireframe display   
-#-----------------------------------------------------#                 
+               
 class DarrowWireframe(bpy.types.Operator):
     bl_idname = "set.wireframe"
     bl_description = "Display Wireframe Overlay Only"
@@ -331,9 +362,6 @@ class DarrowWireframe(bpy.types.Operator):
 
         return {'FINISHED'} 
     
-#-----------------------------------------------------#
-#    handles moving all Booleans's
-#-----------------------------------------------------#
 class DarrowSetCollectionCutter(bpy.types.Operator):
     bl_idname = "set.cutter_coll"
     bl_description = "Move all booleans to 'Darrow_Booleans' collection"
@@ -384,9 +412,6 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
 
         return {'FINISHED'}
 
-#-----------------------------------------------------#
-#    handles moving all empty's
-#-----------------------------------------------------#
 class DarrowSetCollection(bpy.types.Operator):
     bl_idname = "set.empty_coll"
     bl_description = "Move all empties to 'Darrow_Empties' collection"
@@ -430,61 +455,12 @@ class DarrowSetCollection(bpy.types.Operator):
        
         return {'FINISHED'}
 
-def toggle_expand(context, state):
-    area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
-    bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
-    for i in range(state):
-        bpy.ops.outliner.expanded_toggle({'area': area})
-    area.tag_redraw()
-
-
-def traverse_tree(t):
-    yield t
-    for child in t.children:
-        yield from traverse_tree(child)
-
-def store_coll_state(collection, case=False):
-    coll = bpy.context.scene.collection
-    colls = []
-    states = []
-    
-    for c in traverse_tree(coll):
-        if c.name in bpy.context.view_layer.layer_collection.children:
-            print(c.name)
-            state = bpy.context.view_layer.layer_collection.children[c.name].hide_viewport 
-
-            if c.name not in colls:
-                colls.append(c.name)
-                states.append(state)
-
-    print(colls)
-    print(states)
-
-    sort_collection(bpy.context.scene.collection, False)
-
-    for x in range(0,len(colls)):
-        bpy.context.view_layer.layer_collection.children[colls[x]].hide_viewport = states[x]
-
-
-def sort_collection(collection, case=False):
-
-  if collection.children is None:
-      return
-
-  children = sorted(
-      collection.children,
-      key=lambda c: c.name if case else c.name.lower()
-  )
-
-  for child in children:
-    collection.children.unlink(child)
-    collection.children.link(child)
-    sort_collection(child)
-
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
-classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
+classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,
+            DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
+            DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
 
 def register():
     for cls in classes:
