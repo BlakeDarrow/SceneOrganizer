@@ -17,9 +17,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-#-----------------------------------------------------#  
-#   Imports
-#-----------------------------------------------------# 
 import bpy
 from bpy.props import BoolProperty
 
@@ -455,9 +452,6 @@ class DarrowSetCollection(bpy.types.Operator):
        
         return {'FINISHED'}
 
-#-----------------------------------------------------#  
-#   Registration classes
-#-----------------------------------------------------#
 classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
             DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
