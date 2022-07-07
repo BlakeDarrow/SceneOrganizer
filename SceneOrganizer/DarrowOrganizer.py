@@ -205,9 +205,9 @@ class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
         cf = layout.column_flow(columns=2, align=True)
         cf.scale_y = 1.33
         cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
-        cf.operator('darrow.rename_high', text="_High")
+        cf.operator('darrow.rename_high', text="_high")
         cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
-        cf.operator('darrow.rename_low', text="_Low")
+        cf.operator('darrow.rename_low', text="_low")
         row = layout.row()
         row.scale_y = 1.33
         row.operator('darrow.rename_clean', text="Strip Selected Names")
@@ -286,7 +286,7 @@ class DarrowToggleCutters(bpy.types.Operator):
         bpy.context.scene.cutterVis_Bool = not bpy.context.scene.cutterVis_Bool
         print(bpy.context.scene.cutterVis_Bool)
         for ob in bpy.data.objects:
-            if ob.display_type == 'BOUNDS':
+            if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
                 parent = ob.users_collection[0].name
                 
                 if str(ob.users_collection[0].name) == "Darrow_Booleans":

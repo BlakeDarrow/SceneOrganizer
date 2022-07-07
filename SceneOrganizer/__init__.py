@@ -7,7 +7,7 @@ from bpy.props import IntProperty, BoolProperty
 bl_info = {
     "name": "Scene Organizer",
     "author": "Blake Darrow",
-    "version": (1, 0, 7),
+    "version": (1, 0, 9),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > DarrowTools",
     "description": "Adds panel for scene organization.",
