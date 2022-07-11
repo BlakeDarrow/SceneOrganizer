@@ -284,17 +284,17 @@ class DarrowToggleCutters(bpy.types.Operator):
 
     def execute(self, context):
         bpy.context.scene.cutterVis_Bool = not bpy.context.scene.cutterVis_Bool
-        print(bpy.context.scene.cutterVis_Bool)
+
         for ob in bpy.data.objects:
             if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
                 parent = ob.users_collection[0].name
                 
                 if str(ob.users_collection[0].name) == "Darrow_Booleans":
-                   bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
-                   bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
 
-                ob.hide_set(bpy.context.scene.cutterVis_Bool)
-                ob.hide_set(not bpy.context.scene.cutterVis_Bool)
+                    ob.hide_set(bpy.context.scene.cutterVis_Bool)
+                    ob.hide_set(not bpy.context.scene.cutterVis_Bool)
 
         return {'FINISHED'}
 
