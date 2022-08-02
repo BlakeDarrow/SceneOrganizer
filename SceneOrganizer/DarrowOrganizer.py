@@ -25,6 +25,12 @@ from bpy.props import BoolProperty
 
 def updateBooleanVisibility(self, context):
     DarrowToggleCutters.execute(self,context)
+ 
+def updateArmsVisibility(self, context):
+    DarrowToggleArms.execute(self,context)
+ 
+def updateCurveVisibility(self, context):
+    DarrowToggleCurves.execute(self,context)
 
 def updateEmptiesVisibility(self, context):
     DarrowToggleEmpty.execute(self,context)
@@ -130,13 +136,25 @@ def collapse_pop_up(self, context):
     row.operator('darrow.sort_outliner', icon='SORTALPHA', text = text_2,emboss = False)
 
 class OrganizerSettings(bpy.types.PropertyGroup):
+    armsVis : BoolProperty(
+        name = "Armature Visibility",
+        update = updateArmsVisibility,
+        default=False,
+    )
+    curveVis : BoolProperty(
+        name = "Curve Visibility",
+        update = updateCurveVisibility,
+        default=False,
+    )
     booleanVis : BoolProperty(
         name = "Boolean Visibility",
         update = updateBooleanVisibility,
+        default=False,
     )
     emptiesVis : BoolProperty(
         name = "Empties Visibility",
         update = updateEmptiesVisibility,
+        default=False,
     )
     randomVis : BoolProperty(
         name = "Random Visibility",
@@ -145,10 +163,12 @@ class OrganizerSettings(bpy.types.PropertyGroup):
     materialVis : BoolProperty(
         name = "Material Visibility",
         update = updateMaterialVisibility,
+        default=False,
     )
     wireframeVis : BoolProperty(
         name = "Wireframe Visibility",
         update = updateWireframeVisibility,
+        default=False,
     )
 
 class DarrowOrganizePanel():
@@ -164,40 +184,59 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
     bl_idname = "DARROW_PT_organizePanel"
 
     def draw(self, context):
-        layout = self.layout
         scn = bpy.context.scene
-        col = layout.column(align=True)
+        layout = self.layout
+        col = layout.box().column(align=True)
         col.scale_y = 1
-        col.label(text="Sort Objects by Type")
-        cf3 = layout.box().column_flow(columns=2, align=True)
-        cf3.scale_y = 1.33
-        cf3.operator('set.cutter_coll',text="Booleans", icon="MOD_BOOLEAN")
-        cf3.operator('set.empty_coll',text="Empties", icon="EMPTY_AXIS")
-        if context.mode != 'OBJECT':
-            cf3.enabled = False
+        col.label(text="Hide and sort by type.")
+        col_1 = layout.box().column()
+        col_1.scale_y = 1.5
+        col_1 = col_1.split(factor=0.5, align=True)
 
-        col = layout.column(align=True)
-        col.scale_y = 1
-        col.label(text="Viewport Options")
-        cf2 = layout.box().column_flow(columns=2, align=True)
-        cf2.scale_y = 1.33
-        cf2.prop(scn.my_settings, 'booleanVis', toggle=True, text = "Booleans", icon = "MOD_BOOLEAN")
-        rand = cf2.column(align=True)
-        rand.prop(scn.my_settings, 'randomVis', toggle=True, text = "Random", icon = "MATFLUID")
-        cf2.prop(scn.my_settings, 'wireframeVis', toggle=True, text = "Wireframe", icon = "FILE_3D")
-        cf2.prop(scn.my_settings, 'emptiesVis', toggle=True, text = "Empties", icon = "EMPTY_AXIS")
+        split = col_1.split(factor=0.2, align=True)
+        panel = split.column(align=True)
+        icon = split.column(align=True)
 
-        mat = cf2.column(align=True)
-        mat.prop(scn.my_settings, 'materialVis', toggle=True, text = "Material", icon = "SHADING_TEXTURE")
+        col_2 = col_1.split(factor=1, align=True)
+        split_2 = col_2.split(factor=0.8, align=True)
+        icon_2 = split_2.column(align=True)
+        panel_2 = split_2.column(align=True)
+
+        if scn.my_settings.booleanVis:
+            boolIcon = 'HIDE_OFF'
+        else:
+            boolIcon = 'HIDE_ON'
+
+        if scn.my_settings.curveVis:
+            curveIcon = 'HIDE_OFF'
+        else:
+            curveIcon = 'HIDE_ON'
+
+        if scn.my_settings.emptiesVis:
+            emptiesIcon = 'HIDE_OFF'
+        else:
+            emptiesIcon = 'HIDE_ON'
+
+        if scn.my_settings.armsVis:
+            armsIcon = 'HIDE_OFF'
+        else:
+            armsIcon = 'HIDE_ON'
+
+        icon.operator('set.cutter_coll',text="Cutters", icon="MOD_BOOLEAN")
+        panel.prop(scn.my_settings, 'booleanVis',text = "", toggle=True, icon=boolIcon)
+
+        icon_2.operator('set.curve_coll', text = "Curves", icon='MOD_CURVE')
+        panel_2.prop(scn.my_settings, 'curveVis', text="", toggle=True, icon=curveIcon)
+
+        icon.operator('set.empty_coll', text="Empties", icon="EMPTY_AXIS")
+        panel.prop(scn.my_settings, 'emptiesVis',text = "", toggle=True, icon=emptiesIcon)
         
-        if scn.my_settings.randomVis == True:
-                mat.enabled = False
-        if scn.my_settings.materialVis == True:
-                rand.enabled = False
+        icon_2.operator('set.arms_coll', text="Arms", icon="ARMATURE_DATA")
+        panel_2.prop(scn.my_settings, 'armsVis',text = "", toggle=True, icon=armsIcon)
 
-class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
+class DARROW_PT_organizePanel_3(DarrowOrganizePanel, bpy.types.Panel):
     bl_parent_id = "DARROW_PT_organizePanel"
-    bl_label = "Outliner Options"
+    bl_label = "Outliner Tools"
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -214,7 +253,29 @@ class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
 
         col = layout.row()
         col.prop(context.scene,'iconOnly_Bool', text ="Show only icons")
+
+class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
+    bl_parent_id = "DARROW_PT_organizePanel"
+    bl_label = "Viewport Display"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        scn = bpy.context.scene
+
+        cf4 = layout.column_flow(columns=2, align=True)
+        cf4.scale_y = 1.1
+        cf4.prop(scn.my_settings, 'wireframeVis',text = "Wireframe")
+        rand = cf4.column(align=True)
+        rand.prop(scn.my_settings, 'randomVis', text = "Random")
+        mat = cf4.column(align=True)
+        mat.prop(scn.my_settings, 'materialVis',text = "Material")
         
+        if scn.my_settings.randomVis == True:
+                mat.enabled = False
+        if scn.my_settings.materialVis == True:
+                rand.enabled = False
+
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
     bl_label = ""
@@ -280,21 +341,67 @@ class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
     bl_options = {'REGISTER', 'UNDO'}
-    bl_description = "Toggle the visibility of boolean cutters."
+    bl_description = "Toggle the visibility of cutters."
 
     def execute(self, context):
         bpy.context.scene.cutterVis_Bool = not bpy.context.scene.cutterVis_Bool
 
         for ob in bpy.data.objects:
-            if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
-                parent = ob.users_collection[0].name
-                
-                if str(ob.users_collection[0].name) == "Darrow_Booleans":
-                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
-                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+            if ob.type == 'MESH':
+                if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
+                    parent = ob.users_collection[0].name
+                    
+                    if str(ob.users_collection[0].name) == "dBooleans":
+                        bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
+                        bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
 
+                    print(ob.name)
                     ob.hide_set(bpy.context.scene.cutterVis_Bool)
                     ob.hide_set(not bpy.context.scene.cutterVis_Bool)
+
+        return {'FINISHED'}
+
+class DarrowToggleCurves(bpy.types.Operator):
+    bl_label = "Toggle Curves"
+    bl_idname = "darrow.toggle_curves"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "Toggle the visibility of curves."
+
+    def execute(self, context):
+        bpy.context.scene.curveVis_Bool = not bpy.context.scene.curveVis_Bool
+
+        for ob in bpy.data.objects:
+            if ob.type == 'CURVE':
+                parent = ob.users_collection[0].name
+                
+                if str(ob.users_collection[0].name) == "dCurves":
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.curveVis_Bool
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+
+                ob.hide_set(bpy.context.scene.curveVis_Bool)
+                ob.hide_set(not bpy.context.scene.curveVis_Bool)
+
+        return {'FINISHED'}
+
+class DarrowToggleArms(bpy.types.Operator):
+    bl_label = "Toggle Armature"
+    bl_idname = "darrow.toggle_arms"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "Toggle the visibility of armatures."
+
+    def execute(self, context):
+        bpy.context.scene.armsVis_Bool = not bpy.context.scene.armsVis_Bool
+
+        for ob in bpy.data.objects:
+            if ob.type == 'ARMATURE':
+                parent = ob.users_collection[0].name
+                
+                if str(ob.users_collection[0].name) == "dArmatures":
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.armsVis_Bool
+                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+
+                ob.hide_set(bpy.context.scene.armsVis_Bool)
+                ob.hide_set(not bpy.context.scene.armsVis_Bool)
 
         return {'FINISHED'}
 
@@ -306,13 +413,12 @@ class DarrowToggleEmpty(bpy.types.Operator):
 
     def execute(self, context):
         bpy.context.scene.emptyVis_Bool = not bpy.context.scene.emptyVis_Bool
-        print(bpy.context.scene.emptyVis_Bool)
 
         for ob in bpy.data.objects:
             if ob.type == 'EMPTY':
                 parent = ob.users_collection[0].name
         
-                if str(ob.users_collection[0].name) == "Darrow_Empties":
+                if str(ob.users_collection[0].name) == "dEmpties":
                     bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
                     bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
 
@@ -364,12 +470,12 @@ class DarrowWireframe(bpy.types.Operator):
     
 class DarrowSetCollectionCutter(bpy.types.Operator):
     bl_idname = "set.cutter_coll"
-    bl_description = "Move all booleans to 'Darrow_Booleans' collection"
+    bl_description = "Move all booleans to a collection"
     bl_label = "Group All Booleans"
 
     def execute(self, context):
         collectionFound = False
-        empty_collection_name = "Darrow_Booleans"
+        empty_collection_name = "dBooleans"
         old_obj = bpy.context.selected_objects
         scene = bpy.context.scene.objects
 
@@ -412,14 +518,57 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class DarrowSetCurveCollection(bpy.types.Operator):
+    bl_idname = "set.curve_coll"
+    bl_description = "Move all curves to a collection"
+    bl_label = "Group All Curves"
+
+    def execute(self, context):
+        collectionFound = False
+        empty_collection_name = "dCurves"
+        old_obj = bpy.context.selected_objects
+        scene = bpy.context.scene.objects
+        curves = []
+
+        bpy.ops.object.select_all(action='DESELECT')
+        for myCol in bpy.data.collections:
+            if myCol.name == empty_collection_name:
+                collectionFound = True
+                break
+
+        for obj in scene:
+            if obj.type == "CURVE":
+                curves.append(obj)
+
+        if collectionFound == False and not len(curves) == 0:
+            empty_collection = bpy.data.collections.new(empty_collection_name)
+            bpy.context.scene.collection.children.link(empty_collection)
+            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_02'
+        else:
+            self.report({'WARNING'}, "No curves left to sort")
+        if len(curves) != 0:
+            for obj in curves:
+                if obj is not None:
+                    for coll in obj.users_collection:
+                        coll.objects.unlink(obj)
+                    bpy.data.collections[empty_collection_name].objects.link(obj)
+            self.report({'INFO'}, "Moved all curves")
+    
+        bpy.ops.object.select_all(action='DESELECT')
+
+        for x in old_obj:     
+            x.select_set(state=True)
+       
+        return {'FINISHED'}
+
 class DarrowSetCollection(bpy.types.Operator):
     bl_idname = "set.empty_coll"
-    bl_description = "Move all empties to 'Darrow_Empties' collection"
+    bl_description = "Move all empties to a collection"
     bl_label = "Group All Empties"
 
     def execute(self, context):
         collectionFound = False
-        empty_collection_name = "Darrow_Empties"
+        empty_collection_name = "dEmpties"
         old_obj = bpy.context.selected_objects
         scene = bpy.context.scene.objects
         empties = []
@@ -437,7 +586,7 @@ class DarrowSetCollection(bpy.types.Operator):
         if collectionFound == False and not len(empties) == 0:
             empty_collection = bpy.data.collections.new(empty_collection_name)
             bpy.context.scene.collection.children.link(empty_collection)
-            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
+            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_03'
         else:
             self.report({'WARNING'}, "No empties left to sort")
         if len(empties) != 0:
@@ -452,15 +601,58 @@ class DarrowSetCollection(bpy.types.Operator):
 
         for x in old_obj:     
             x.select_set(state=True)
-       
+
+        return {'FINISHED'}
+
+class DarrowSetArmsCollection(bpy.types.Operator):
+    bl_idname = "set.arms_coll"
+    bl_description = "Move all armatures to a collection"
+    bl_label = "Group All Armatures"
+
+    def execute(self, context):
+        collectionFound = False
+        empty_collection_name = "dArmatures"
+        old_obj = bpy.context.selected_objects
+        scene = bpy.context.scene.objects
+        curves = []
+
+        bpy.ops.object.select_all(action='DESELECT')
+        for myCol in bpy.data.collections:
+            if myCol.name == empty_collection_name:
+                collectionFound = True
+                break
+
+        for obj in scene:
+            if obj.type == "ARMATURE":
+                curves.append(obj)
+
+        if collectionFound == False and not len(curves) == 0:
+            empty_collection = bpy.data.collections.new(empty_collection_name)
+            bpy.context.scene.collection.children.link(empty_collection)
+            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_04'
+        else:
+            self.report({'WARNING'}, "No armatures left to sort")
+        if len(curves) != 0:
+            for obj in curves:
+                if obj is not None:
+                    for coll in obj.users_collection:
+                        coll.objects.unlink(obj)
+                    bpy.data.collections[empty_collection_name].objects.link(obj)
+            self.report({'INFO'}, "Moved all armatures")
+    
+        bpy.ops.object.select_all(action='DESELECT')
+
+        for x in old_obj:     
+            x.select_set(state=True)
+
         return {'FINISHED'}
 
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
-classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,OrganizerSettings,DarrowSort,
+classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,DARROW_PT_organizePanel_3,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
-            DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe,)
+            DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection)
 
 def register():
     for cls in classes:
@@ -473,6 +665,18 @@ def register():
     bpy.types.Scene.cutterVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of cutters",
+        default=False
+    )
+
+    bpy.types.Scene.curveVis_Bool = bpy.props.BoolProperty(
+        name="Vis Bool",
+        description="Toggle visibility of curves",
+        default=False
+    )
+
+    bpy.types.Scene.armsVis_Bool = bpy.props.BoolProperty(
+        name="Vis Bool",
+        description="Toggle visibility of armatures",
         default=False
     )
 
