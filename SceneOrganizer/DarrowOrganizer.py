@@ -186,11 +186,11 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
     def draw(self, context):
         scn = bpy.context.scene
         layout = self.layout
-        col = layout.box().column(align=True)
+        col = layout.column(align=True)
         col.scale_y = 1
-        col.label(text="Hide and sort by type.")
+        col.label(text="Hide and sort by type")
         col_1 = layout.box().column()
-        col_1.scale_y = 1.5
+        col_1.scale_y = 1.33
         col_1 = col_1.split(factor=0.5, align=True)
 
         split = col_1.split(factor=0.2, align=True)
@@ -236,7 +236,7 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
 
 class DARROW_PT_organizePanel_3(DarrowOrganizePanel, bpy.types.Panel):
     bl_parent_id = "DARROW_PT_organizePanel"
-    bl_label = "Outliner Tools"
+    bl_label = "Outliner"
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -256,7 +256,7 @@ class DARROW_PT_organizePanel_3(DarrowOrganizePanel, bpy.types.Panel):
 
 class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
     bl_parent_id = "DARROW_PT_organizePanel"
-    bl_label = "Viewport Display"
+    bl_label = "Viewport"
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
