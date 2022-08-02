@@ -147,12 +147,12 @@ class OrganizerSettings(bpy.types.PropertyGroup):
         default=False,
     )
     booleanVis : BoolProperty(
-        name = "Boolean Visibility",
+        name = "Cutter Visibility",
         update = updateBooleanVisibility,
         default=False,
     )
     emptiesVis : BoolProperty(
-        name = "Empties Visibility",
+        name = "Empty Visibility",
         update = updateEmptiesVisibility,
         default=False,
     )
@@ -193,50 +193,30 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         col_1.scale_y = 1.33
         col_1 = col_1.split(factor=0.5, align=True)
 
-        split = col_1.split(factor=0.2, align=True)
+        split = col_1.split(factor=0.3, align=True)
         panel = split.column(align=True)
         icon = split.column(align=True)
 
         col_2 = col_1.split(factor=1, align=True)
-        split_2 = col_2.split(factor=0.8, align=True)
+        split_2 = col_2.split(factor=0.7, align=True)
         icon_2 = split_2.column(align=True)
         panel_2 = split_2.column(align=True)
 
-        if scn.my_settings.booleanVis:
-            boolIcon = 'HIDE_OFF'
-        else:
-            boolIcon = 'HIDE_ON'
+        icon.operator('set.cutter_coll',text="Cutters", )
+        panel.prop(scn.my_settings, 'booleanVis',text = "", toggle=True, icon="MOD_BOOLEAN")
 
-        if scn.my_settings.curveVis:
-            curveIcon = 'HIDE_OFF'
-        else:
-            curveIcon = 'HIDE_ON'
+        icon_2.operator('set.curve_coll', text = "Curves", )
+        panel_2.prop(scn.my_settings, 'curveVis', text="", toggle=True, icon='MOD_CURVE')
 
-        if scn.my_settings.emptiesVis:
-            emptiesIcon = 'HIDE_OFF'
-        else:
-            emptiesIcon = 'HIDE_ON'
-
-        if scn.my_settings.armsVis:
-            armsIcon = 'HIDE_OFF'
-        else:
-            armsIcon = 'HIDE_ON'
-
-        icon.operator('set.cutter_coll',text="Cutters", icon="MOD_BOOLEAN")
-        panel.prop(scn.my_settings, 'booleanVis',text = "", toggle=True, icon=boolIcon)
-
-        icon_2.operator('set.curve_coll', text = "Curves", icon='MOD_CURVE')
-        panel_2.prop(scn.my_settings, 'curveVis', text="", toggle=True, icon=curveIcon)
-
-        icon.operator('set.empty_coll', text="Empties", icon="EMPTY_AXIS")
-        panel.prop(scn.my_settings, 'emptiesVis',text = "", toggle=True, icon=emptiesIcon)
+        icon.operator('set.empty_coll', text="Empties", )
+        panel.prop(scn.my_settings, 'emptiesVis',text = "", toggle=True, icon="EMPTY_AXIS")
         
-        icon_2.operator('set.arms_coll', text="Arms", icon="ARMATURE_DATA")
-        panel_2.prop(scn.my_settings, 'armsVis',text = "", toggle=True, icon=armsIcon)
+        icon_2.operator('set.arms_coll', text="Arms", )
+        panel_2.prop(scn.my_settings, 'armsVis',text = "", toggle=True, icon="ARMATURE_DATA")
 
 class DARROW_PT_organizePanel_3(DarrowOrganizePanel, bpy.types.Panel):
     bl_parent_id = "DARROW_PT_organizePanel"
-    bl_label = "Outliner"
+    bl_label = "Outliner Tools"
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -244,12 +224,12 @@ class DARROW_PT_organizePanel_3(DarrowOrganizePanel, bpy.types.Panel):
         cf = layout.column_flow(columns=2, align=True)
         cf.scale_y = 1.33
         cf.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
-        cf.operator('darrow.rename_high', text="_high")
+        cf.operator('darrow.rename_high', text="'_high'", icon="SMALL_CAPS")
         cf.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
-        cf.operator('darrow.rename_low', text="_low")
+        cf.operator('darrow.rename_low', text="'_low'", icon="SMALL_CAPS")
         row = layout.row()
         row.scale_y = 1.33
-        row.operator('darrow.rename_clean', text="Strip Selected Names")
+        row.operator('darrow.rename_clean', text="Strip Selected Names", icon="TRASH")
 
         col = layout.row()
         col.prop(context.scene,'iconOnly_Bool', text ="Show only icons")
@@ -470,8 +450,8 @@ class DarrowWireframe(bpy.types.Operator):
     
 class DarrowSetCollectionCutter(bpy.types.Operator):
     bl_idname = "set.cutter_coll"
-    bl_description = "Move all booleans to a collection"
-    bl_label = "Group All Booleans"
+    bl_description = "Move all cutters to a collection"
+    bl_label = "Group All cutters"
 
     def execute(self, context):
         collectionFound = False
