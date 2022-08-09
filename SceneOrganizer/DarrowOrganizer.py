@@ -61,18 +61,24 @@ def store_coll_state(collection, case=False):
     coll = bpy.context.scene.collection
     colls = []
     states = []
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     
     for c in traverse_tree(coll):
-        if c.name in bpy.context.view_layer.layer_collection.children:
-            state = bpy.context.view_layer.layer_collection.children[c.name].hide_viewport 
+        #if c.name in bpy.context.view_layer.layer_collection.children:
+        if c.name in bpy.data.collections:
+                state = get_layer_collection(c).hide_viewport
+                if c.name not in colls:
+                    colls.append(c)
+                    states.append(state)
 
-            if c.name not in colls:
-                colls.append(c.name)
-                states.append(state)
     sort_collection(bpy.context.scene.collection, False)
 
     for x in range(0,len(colls)):
-        bpy.context.view_layer.layer_collection.children[colls[x]].hide_viewport = states[x]
+        if colls[x] in colls:
+            print(states[x])
+            get_layer_collection(colls[x]).hide_viewport = states[x]
+        #bpy.context.view_layer.layer_collection.children[colls[x]].hide_viewport = states[x]
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 def sort_collection(collection, case=False):
 
@@ -279,7 +285,7 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         if bpy.context.scene.showSceneAdvancedOptionsBool == True:
             col = layout.box()
             col.scale_y = 1.1
-            col.prop(context.scene, "volumeCurves_Bool", text="Only use Zero-volume curves")
+            col.prop(context.scene, "volumeCurves_Bool", text="Zero-volume curves")
             col.prop(context.scene,'iconOnly_Bool', text ="Display only icons in outliner")
 
 class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
