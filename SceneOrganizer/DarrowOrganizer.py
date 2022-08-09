@@ -730,7 +730,6 @@ class DARROW_MT_organizerPie(Menu):
     bl_label = "Scene Organizer"
 
     def draw(self, context):
-        
         layout = self.layout
         pie = layout.menu_pie()
         pie.prop(context.scene.my_settings, 'booleanVis',text = "Cutters", toggle=True, icon="MOD_BOOLEAN")
@@ -747,7 +746,7 @@ class DARROW_MT_organizerPie(Menu):
         other_menu = other.box().column(align=True)
         other_menu.scale_y=1.5
         other_menu.label(text="Sort by type")
-        other_menu.operator("set.all_coll", text="Sort All         ")
+        other_menu.operator("set.all_coll", text="Sort All                          ", icon="OUTLINER_OB_GROUP_INSTANCE")
         other_menu.separator()
         other_menu.operator("set.cutter_coll", text="Cutters",icon="MOD_BOOLEAN")
         other_menu.operator("set.curve_coll", text="Curves", icon="MOD_CURVE")
@@ -782,7 +781,7 @@ class SceneOrganizerPopUpCallback(bpy.types.Operator):
 
 def sceneDropdown(self, context):
     layout = self.layout
-    layout.operator('darrow.organizer_popup_callback', icon="EXPORT", text = "Scene Organizer")
+    layout.operator('darrow.organizer_popup_callback', icon="RESTRICT_VIEW_ON", text = "Scene Organizer")
 
 #-----------------------------------------------------#  
 #   Registration classes
