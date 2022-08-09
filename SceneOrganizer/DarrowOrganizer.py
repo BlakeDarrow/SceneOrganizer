@@ -219,8 +219,10 @@ def get_layer_collection(collection):
 def toggleCollectionVis(ob, collectionName, bool):
     if str(ob.users_collection[0].name) == collectionName:
         """Blender makes things hard and throws an error if you try to directly access a nested collection from the viewlayer. This was a workaround I found online."""
-        get_layer_collection(bpy.data.collections[collectionName]).hide_viewport = bool
-        get_layer_collection(bpy.data.collections[collectionName]).hide_viewport = not get_layer_collection(bpy.data.collections[collectionName]).hide_viewport
+
+        coll = get_layer_collection(bpy.data.collections[collectionName])
+        coll.hide_viewport = bool
+        coll.hide_viewport = not coll.hide_viewport
 
         # Make sure the parent collection "_SceneOrganizer" is visible
         get_layer_collection(bpy.data.collections["_SceneOrganizer"]).hide_viewport = False
@@ -731,6 +733,8 @@ class DARROW_MT_organizerPie(Menu):
 
     def draw(self, context):
         layout = self.layout
+        yScale = 1.5
+        xScale = 1.3
         pie = layout.menu_pie()
         pie.prop(context.scene.my_settings, 'booleanVis',text = "Cutters", toggle=True, icon="MOD_BOOLEAN")
         pie.prop(context.scene.my_settings, 'emptiesVis',text = "Empties", toggle=True, icon="EMPTY_AXIS")
@@ -743,33 +747,44 @@ class DARROW_MT_organizerPie(Menu):
         gap.separator()
         gap.separator()
         gap.scale_y = 7
+        self.top_header(other)
         other_menu = other.box().column(align=True)
-        other_menu.scale_y=1.5
+        other_menu.scale_y=yScale
+        other_menu.scale_x=xScale
         other_menu.label(text="Sort by type")
-        other_menu.operator("set.all_coll", text="Sort All                          ", icon="OUTLINER_OB_GROUP_INSTANCE")
+        other_menu.operator("set.all_coll", text="Sort All", icon="OUTLINER_OB_GROUP_INSTANCE")
         other_menu.separator()
         other_menu.operator("set.arms_coll", text="Armatures", icon="ARMATURE_DATA")
         other_menu.operator("set.curve_coll", text="Curves", icon="MOD_CURVE")
         other_menu.operator("set.cutter_coll", text="Cutters",icon="MOD_BOOLEAN")
         other_menu.operator("set.empty_coll", text="Empties", icon="EMPTY_AXIS")
-        pie.separator()
-        pie.separator()
         other = pie.column()
         gap = other.column()
         gap.separator()
         gap.separator()
-        gap.scale_y = 9.25
+        gap.scale_y = 7
+        self.top_header(other)
         other_menu = other.box().column(align=True)
-        other_menu.scale_y=1.5
+        other_menu.scale_y=yScale
+        other_menu.scale_x=xScale
         other_menu.label(text="Outliner tools")
         other_menu.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
         other_menu.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
-
+        other_menu.separator()
+        other_menu.operator("darrow.rename_high", text="Add 'high'",)
+        other_menu.operator("darrow.rename_low", text="Add 'low'",)
+        other_menu.operator("darrow.rename_clean", text="Strip Name", icon="TRASH")
+        
     def execute(self, context):
         return {'FINISHED'}
 
     def invoke(self, context, event):
         return context.window_manager.invoke_popup(self)
+        
+    def top_header(self,layout):
+        top_header = layout.column()
+        top_header.scale_y = 0.8
+        top_header.label(text="")
 
 class SceneOrganizerPopUpCallback(bpy.types.Operator):
     bl_label = "Easy Export Popup"
