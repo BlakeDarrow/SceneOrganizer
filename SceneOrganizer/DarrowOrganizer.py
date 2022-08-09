@@ -57,10 +57,13 @@ def traverse_tree(t):
     for child in t.children:
         yield from traverse_tree(child)
 
-def store_coll_state(collection, case=False):
+def store_and_execute_states(collection, case=False):
     coll = bpy.context.scene.collection
     colls = []
     states = []
+
+    obj_states = []
+    objs = []
 
     for c in traverse_tree(coll):
         if c.name in bpy.data.collections:
@@ -69,12 +72,24 @@ def store_coll_state(collection, case=False):
                     colls.append(c)
                     states.append(state)
 
+    for col in bpy.data.collections:
+        get_layer_collection(col).hide_viewport = False
+
+    for x in bpy.context.scene.objects:
+        if x not in obj_states:
+            state = x.visible_get()
+            objs.append(x)
+            obj_states.append(state)
+
     sort_collection(bpy.context.scene.collection, False)
 
     for x in range(0,len(colls)):
         if colls[x] in colls:
-            print(states[x])
             get_layer_collection(colls[x]).hide_viewport = states[x]
+
+    for x in range(0,len(objs)):
+        if objs[x] in objs:
+            objs[x].hide_set(not obj_states[x])
 
 def sort_collection(collection, case=False):
 
@@ -385,7 +400,7 @@ class DarrowSort(bpy.types.Operator):
     def execute(self,context):
         case_sensitive = False
         for scene in bpy.data.scenes:
-            store_coll_state(scene.collection, case_sensitive)
+            store_and_execute_states(scene.collection, case_sensitive)
         return {'FINISHED'}
 
 class DarrowRenameSelectedHigh(bpy.types.Operator):
