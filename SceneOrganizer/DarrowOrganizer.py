@@ -392,6 +392,14 @@ def get_layer_collection(collection):
 
     return scan_children(bpy.context.view_layer.layer_collection)
 
+def toggleCollectionVis(ob, collectionName, bool):
+    if str(ob.users_collection[0].name) == collectionName:
+        get_layer_collection(ob.users_collection[0]).hide_viewport = bool
+        get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
+
+        ob.hide_set(bool)
+        ob.hide_set(not bool)
+
 class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
@@ -404,13 +412,7 @@ class DarrowToggleCutters(bpy.types.Operator):
         for ob in bpy.data.objects:
             if ob.type == 'MESH':
                 if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
-
-                    if str(ob.users_collection[0].name) == "_cutters":
-                        get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.cutterVis_Bool
-                        get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
-
-                    ob.hide_set(bpy.context.scene.cutterVis_Bool)
-                    ob.hide_set(not bpy.context.scene.cutterVis_Bool)
+                    toggleCollectionVis(ob, "_cutters", bpy.context.scene.cutterVis_Bool)
 
         return {'FINISHED'}
 
@@ -427,20 +429,10 @@ class DarrowToggleCurves(bpy.types.Operator):
             if ob.type == 'CURVE':
                 if bpy.context.scene.volumeCurves_Bool == True:
                     if curve_to_mesh(context, ob):
-                        if str(ob.users_collection[0].name) == "_curves":
-                            get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.curveVis_Bool
-                            get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
-
-                        ob.hide_set(bpy.context.scene.curveVis_Bool)
-                        ob.hide_set(not bpy.context.scene.curveVis_Bool)
+                        toggleCollectionVis(ob, "_curves", bpy.context.scene.curveVis_Bool)
                 else:
-                    if str(ob.users_collection[0].name) == "_curves":
-                        get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.curveVis_Bool
-                        get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
-
-                    ob.hide_set(bpy.context.scene.curveVis_Bool)
-                    ob.hide_set(not bpy.context.scene.curveVis_Bool)
-
+                    toggleCollectionVis(ob, "_curves", bpy.context.scene.curveVis_Bool)
+                   
         return {'FINISHED'}
 
 class DarrowToggleArms(bpy.types.Operator):
@@ -454,14 +446,8 @@ class DarrowToggleArms(bpy.types.Operator):
 
         for ob in bpy.data.objects:
             if ob.type == 'ARMATURE':
-                if str(ob.users_collection[0].name) == "_armatures":
-                    get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.armsVis_Bool
-                    get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
-
-
-                ob.hide_set(bpy.context.scene.armsVis_Bool)
-                ob.hide_set(not bpy.context.scene.armsVis_Bool)
-
+                toggleCollectionVis(ob, "_armatures", bpy.context.scene.armsVis_Bool)
+                
         return {'FINISHED'}
 
 class DarrowToggleEmpty(bpy.types.Operator):
@@ -474,13 +460,8 @@ class DarrowToggleEmpty(bpy.types.Operator):
         bpy.context.scene.emptyVis_Bool = not bpy.context.scene.emptyVis_Bool
 
         for ob in bpy.data.objects:
-            if ob.type == 'EMPTY':
-                if str(ob.users_collection[0].name) == "_empties":
-                    get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.emptyVis_Bool
-                    get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
-
-                ob.hide_set(bpy.context.scene.emptyVis_Bool)
-                ob.hide_set(not bpy.context.scene.emptyVis_Bool)
+            if ob.type == 'EMPTY' or ob.type == "LATTICE":
+                toggleCollectionVis(ob, "_empties", bpy.context.scene.emptyVis_Bool)
 
 class DarrowCollapseOutliner(bpy.types.Operator):
     bl_label = "Collapse Outliner"
@@ -614,7 +595,7 @@ class DarrowSetCurveCollection(bpy.types.Operator):
 class DarrowSetCollection(bpy.types.Operator):
     bl_idname = "set.empty_coll"
     bl_description = "Move all empties to a collection"
-    bl_label = "Group All Empties"
+    bl_label = "Group All Empties and Lattices"
 
     def execute(self, context):
         collectionFound = False
@@ -630,7 +611,7 @@ class DarrowSetCollection(bpy.types.Operator):
                 break
 
         for obj in scene:
-            if obj.type == "EMPTY":
+            if obj.type == "EMPTY" or obj.type == "LATTICE":
                 empties.append(obj)
 
         if collectionFound == False and not len(empties) == 0:
