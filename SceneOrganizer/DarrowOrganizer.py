@@ -381,6 +381,17 @@ class DarrowCleanName(bpy.types.Operator):
             strip(obj)
         return {'FINISHED'}
 
+def get_layer_collection(collection):
+    '''Returns the view layer LayerCollection for a specificied Collection'''
+    def scan_children(lc, result=None):
+        for c in lc.children:
+            if c.collection == collection:
+                return c
+            result = scan_children(c, result)
+        return result
+
+    return scan_children(bpy.context.view_layer.layer_collection)
+
 class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
@@ -393,11 +404,10 @@ class DarrowToggleCutters(bpy.types.Operator):
         for ob in bpy.data.objects:
             if ob.type == 'MESH':
                 if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
-                    parent = ob.users_collection[0].name
-                    
+
                     if str(ob.users_collection[0].name) == "_cutters":
-                        bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.cutterVis_Bool
-                        bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+                        get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.cutterVis_Bool
+                        get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
 
                     ob.hide_set(bpy.context.scene.cutterVis_Bool)
                     ob.hide_set(not bpy.context.scene.cutterVis_Bool)
@@ -417,20 +427,16 @@ class DarrowToggleCurves(bpy.types.Operator):
             if ob.type == 'CURVE':
                 if bpy.context.scene.volumeCurves_Bool == True:
                     if curve_to_mesh(context, ob):
-                        parent = ob.users_collection[0].name
-                
                         if str(ob.users_collection[0].name) == "_curves":
-                            bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.curveVis_Bool
-                            bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+                            get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.curveVis_Bool
+                            get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
 
                         ob.hide_set(bpy.context.scene.curveVis_Bool)
                         ob.hide_set(not bpy.context.scene.curveVis_Bool)
                 else:
-                    parent = ob.users_collection[0].name
-                
                     if str(ob.users_collection[0].name) == "_curves":
-                        bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.curveVis_Bool
-                        bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+                        get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.curveVis_Bool
+                        get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
 
                     ob.hide_set(bpy.context.scene.curveVis_Bool)
                     ob.hide_set(not bpy.context.scene.curveVis_Bool)
@@ -448,11 +454,10 @@ class DarrowToggleArms(bpy.types.Operator):
 
         for ob in bpy.data.objects:
             if ob.type == 'ARMATURE':
-                parent = ob.users_collection[0].name
-                
                 if str(ob.users_collection[0].name) == "_armatures":
-                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.armsVis_Bool
-                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+                    get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.armsVis_Bool
+                    get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
+
 
                 ob.hide_set(bpy.context.scene.armsVis_Bool)
                 ob.hide_set(not bpy.context.scene.armsVis_Bool)
@@ -470,11 +475,9 @@ class DarrowToggleEmpty(bpy.types.Operator):
 
         for ob in bpy.data.objects:
             if ob.type == 'EMPTY':
-                parent = ob.users_collection[0].name
-        
                 if str(ob.users_collection[0].name) == "_empties":
-                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = bpy.context.scene.emptyVis_Bool
-                    bpy.context.view_layer.layer_collection.children[parent].hide_viewport = not bpy.context.view_layer.layer_collection.children[parent].hide_viewport
+                    get_layer_collection(ob.users_collection[0]).hide_viewport = bpy.context.scene.emptyVis_Bool
+                    get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
 
                 ob.hide_set(bpy.context.scene.emptyVis_Bool)
                 ob.hide_set(not bpy.context.scene.emptyVis_Bool)
@@ -548,11 +551,7 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
                 bools.append(obj)
 
         if collectionFound == False and not len(bools) == 0:
-            empty_collection = bpy.data.collections.new(empty_collection_name)
-            bpy.context.scene.collection.children.link(empty_collection)
-            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_05'
-        else:
-            self.report({'WARNING'}, "No boolean cutters left to sort")
+            MakeCollections("_cutters","COLOR_01")
         if len(bools) != 0:
             for obj in bools:
                 if obj is not None:
@@ -596,11 +595,7 @@ class DarrowSetCurveCollection(bpy.types.Operator):
                     curves.append(obj)
 
         if collectionFound == False and not len(curves) == 0:
-            empty_collection = bpy.data.collections.new(empty_collection_name)
-            bpy.context.scene.collection.children.link(empty_collection)
-            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_01'
-        else:
-            self.report({'WARNING'}, "No curves left to sort")
+            MakeCollections("_curves","COLOR_07")
         if len(curves) != 0:
             for obj in curves:
                 if obj is not None:
@@ -639,11 +634,7 @@ class DarrowSetCollection(bpy.types.Operator):
                 empties.append(obj)
 
         if collectionFound == False and not len(empties) == 0:
-            empty_collection = bpy.data.collections.new(empty_collection_name)
-            bpy.context.scene.collection.children.link(empty_collection)
-            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_03'
-        else:
-            self.report({'WARNING'}, "No empties left to sort")
+            MakeCollections("_empties", "COLOR_03")
         if len(empties) != 0:
             for obj in empties:
                 if obj is not None:
@@ -682,11 +673,8 @@ class DarrowSetArmsCollection(bpy.types.Operator):
                 curves.append(obj)
 
         if collectionFound == False and not len(curves) == 0:
-            empty_collection = bpy.data.collections.new(empty_collection_name)
-            bpy.context.scene.collection.children.link(empty_collection)
-            bpy.data.collections[empty_collection_name].color_tag = 'COLOR_04'
-        else:
-            self.report({'WARNING'}, "No armatures left to sort")
+            MakeCollections("_armatures", "COLOR_04")
+        
         if len(curves) != 0:
             for obj in curves:
                 if obj is not None:
@@ -702,6 +690,24 @@ class DarrowSetArmsCollection(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def MakeCollections(name, color):
+    collectionFound = False
+
+    for myCol in bpy.data.collections:
+        if myCol.name == "_SceneOrganizer":
+            collectionFound = True
+            master_collection = bpy.data.collections["_SceneOrganizer"]
+            break
+
+    if collectionFound == False:    
+        master_collection = bpy.data.collections.new("_SceneOrganizer")
+        bpy.context.scene.collection.children.link(master_collection)
+    new_collection = bpy.data.collections.new(name)
+
+    bpy.data.collections[master_collection.name].color_tag = 'COLOR_05'
+    bpy.data.collections[new_collection.name].color_tag = color
+    master_collection.children.link(new_collection)
+   
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
