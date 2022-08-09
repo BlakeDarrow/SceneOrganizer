@@ -23,7 +23,8 @@
 import bpy
 import bmesh
 from bpy.props import BoolProperty
-
+from bpy.types import Menu
+ 
 def updateBooleanVisibility(self, context):
     DarrowToggleCutters.execute(self,context)
  
@@ -218,16 +219,16 @@ def get_layer_collection(collection):
 def toggleCollectionVis(ob, collectionName, bool):
     if str(ob.users_collection[0].name) == collectionName:
         """Blender makes things hard and throws an error if you try to directly access a nested collection from the viewlayer. This was a workaround I found online."""
-        get_layer_collection(ob.users_collection[0]).hide_viewport = bool
-        get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
+        get_layer_collection(bpy.data.collections[collectionName]).hide_viewport = bool
+        get_layer_collection(bpy.data.collections[collectionName]).hide_viewport = not get_layer_collection(bpy.data.collections[collectionName]).hide_viewport
 
         # Make sure the parent collection "_SceneOrganizer" is visible
         get_layer_collection(bpy.data.collections["_SceneOrganizer"]).hide_viewport = False
 
-        ob.hide_set(bool)
-        ob.hide_set(not bool)
+    ob.hide_set(bool)
+    ob.hide_set(not bool)
 
-def MakeCollections(name, color):
+def MakeCollections(name, color, bool):
     collectionFound = False
 
     for myCol in bpy.data.collections:
@@ -244,7 +245,9 @@ def MakeCollections(name, color):
     bpy.data.collections[master_collection.name].color_tag = 'COLOR_05'
     bpy.data.collections[new_collection.name].color_tag = color
     master_collection.children.link(new_collection)
-   
+
+    get_layer_collection(new_collection).hide_viewport = not bool
+
 class OrganizerSettings(bpy.types.PropertyGroup):
     armsVis : BoolProperty(
         name = "Armature Visibility",
@@ -571,7 +574,8 @@ class DarrowSetCollectionCutter(bpy.types.Operator):
                 bools.append(obj)
 
         if collectionFound == False and not len(bools) == 0:
-            MakeCollections("_Cutters","COLOR_01")
+            MakeCollections("_Cutters","COLOR_01", bpy.context.scene.cutterVis_Bool)
+            
         if len(bools) != 0:
             for obj in bools:
                 if obj is not None:
@@ -615,7 +619,7 @@ class DarrowSetCurveCollection(bpy.types.Operator):
                     curves.append(obj)
 
         if collectionFound == False and not len(curves) == 0:
-            MakeCollections("_Curves","COLOR_07")
+            MakeCollections("_Curves","COLOR_07",context.scene.my_settings.curveVis)
         if len(curves) != 0:
             for obj in curves:
                 if obj is not None:
@@ -654,7 +658,7 @@ class DarrowSetCollection(bpy.types.Operator):
                 empties.append(obj)
 
         if collectionFound == False and not len(empties) == 0:
-            MakeCollections("_Empties", "COLOR_03")
+            MakeCollections("_Empties", "COLOR_03",context.scene.my_settings.emptiesVis)
         if len(empties) != 0:
             for obj in empties:
                 if obj is not None:
@@ -693,7 +697,7 @@ class DarrowSetArmsCollection(bpy.types.Operator):
                 curves.append(obj)
 
         if collectionFound == False and not len(curves) == 0:
-            MakeCollections("_Armatures", "COLOR_04")
+            MakeCollections("_Armatures", "COLOR_04", context.scene.my_settings.armsVis)
         
         if len(curves) != 0:
             for obj in curves:
@@ -710,17 +714,95 @@ class DarrowSetArmsCollection(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class DarrowSetAllCollections(bpy.types.Operator):
+    bl_idname = "set.all_coll"
+    bl_description = "Move all respective collections"
+    bl_label = "Group All"
+
+    def execute(self, context):
+        DarrowSetCollectionCutter.execute(self,context)
+        DarrowSetCurveCollection.execute(self,context)
+        DarrowSetCollection.execute(self,context)
+        DarrowSetArmsCollection.execute(self,context)
+        return {'FINISHED'}
+
+class DARROW_MT_organizerPie(Menu):
+    bl_label = "Scene Organizer"
+
+    def draw(self, context):
+        layout = self.layout
+        pie = layout.menu_pie()
+        pie.prop(context.scene.my_settings, 'booleanVis',text = "Cutters", toggle=True, icon="MOD_BOOLEAN")
+        pie.prop(context.scene.my_settings, 'curveVis',text = "Curves", toggle=True, icon="MOD_CURVE")
+        pie.prop(context.scene.my_settings, 'emptiesVis',text = "Empties", toggle=True, icon="EMPTY_AXIS")
+        pie.prop(context.scene.my_settings, 'armsVis',text = "Armatures", toggle=True, icon="ARMATURE_DATA")
+        pie.separator()
+        pie.separator()
+        other = pie.column()
+        gap = other.column()
+        gap.separator()
+        gap.separator()
+        gap.scale_y = 7
+        other_menu = other.box().column(align=True)
+        other_menu.scale_y=1.5
+        other_menu.label(text="Sort by type")
+        other_menu.operator("set.all_coll", text="Sort All                          ", icon="OUTLINER_OB_GROUP_INSTANCE")
+        other_menu.separator()
+        other_menu.operator("set.cutter_coll", text="Cutters",icon="MOD_BOOLEAN")
+        other_menu.operator("set.curve_coll", text="Curves", icon="MOD_CURVE")
+        other_menu.operator("set.empty_coll", text="Empties", icon="EMPTY_AXIS")
+        other_menu.operator("set.arms_coll", text="Armatures", icon="ARMATURE_DATA")
+        pie.separator()
+        pie.separator()
+        other = pie.column()
+        gap = other.column()
+        gap.separator()
+        gap.separator()
+        gap.scale_y = 9.25
+        other_menu = other.box().column(align=True)
+        other_menu.scale_y=1.5
+        other_menu.label(text="Outliner Tools")
+        other_menu.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
+        other_menu.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
+
+    def execute(self, context):
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_popup(self)
+
+class SceneOrganizerPopUpCallback(bpy.types.Operator):
+    bl_label = "Easy Export Popup"
+    bl_idname = "darrow.organizer_popup_callback"
+
+    def execute(self, context):
+        bpy.ops.wm.call_menu_pie(name="DARROW_MT_organizerPie")
+        return {'FINISHED'}
+
+def sceneDropdown(self, context):
+    layout = self.layout
+    layout.operator('darrow.organizer_popup_callback', icon="RESTRICT_VIEW_ON", text = "Scene Organizer")
+
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
 classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,DARROW_PT_organizePanel_3,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
-            DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,)
+            DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
+            SceneOrganizerPopUpCallback,DARROW_MT_organizerPie,DarrowSetAllCollections,)
+addon_keymaps = []
 
 def register():
+    kc = bpy.context.window_manager.keyconfigs.addon
+    if kc:
+        km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
+        kmi = km.keymap_items.new(SceneOrganizerPopUpCallback.bl_idname, 'E', 'PRESS', shift=True)
+        addon_keymaps.append((km, kmi))
+
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    bpy.types.VIEW3D_MT_object_context_menu.append(sceneDropdown)
     bpy.types.OUTLINER_HT_header.prepend(collapse_pop_up)
 
     bpy.types.Scene.my_settings = bpy.props.PointerProperty(type=OrganizerSettings)
@@ -784,9 +866,14 @@ def register():
 
 def unregister():
 
+    for km, kmi in addon_keymaps:
+        km.keymap_items.remove(kmi)
+    addon_keymaps.clear()
+
     for cls in classes:
         bpy.utils.unregister_class(cls)
-        
+
+    bpy.types.VIEW3D_MT_object_context_menu.remove(sceneDropdown)
     bpy.types.OUTLINER_HT_header.remove(collapse_pop_up)
 
 if __name__ == "__main__":
