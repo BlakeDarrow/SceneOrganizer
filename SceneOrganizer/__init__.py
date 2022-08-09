@@ -10,7 +10,7 @@ bl_info = {
     "version": (1, 1, 8),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > DarrowTools",
-    "description": "Adds panel for scene organization.",
+    "description": "Adds panel for scene organization. Shortcut 'Shift-E'",
     "category": "Tools",
     "wiki_url": "https://docs.darrow.tools/en/latest/index.html",
     }

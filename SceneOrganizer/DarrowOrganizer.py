@@ -733,9 +733,9 @@ class DARROW_MT_organizerPie(Menu):
         layout = self.layout
         pie = layout.menu_pie()
         pie.prop(context.scene.my_settings, 'booleanVis',text = "Cutters", toggle=True, icon="MOD_BOOLEAN")
-        pie.prop(context.scene.my_settings, 'curveVis',text = "Curves", toggle=True, icon="MOD_CURVE")
         pie.prop(context.scene.my_settings, 'emptiesVis',text = "Empties", toggle=True, icon="EMPTY_AXIS")
         pie.prop(context.scene.my_settings, 'armsVis',text = "Armatures", toggle=True, icon="ARMATURE_DATA")
+        pie.prop(context.scene.my_settings, 'curveVis',text = "Curves", toggle=True, icon="MOD_CURVE")
         pie.separator()
         pie.separator()
         other = pie.column()
@@ -748,10 +748,10 @@ class DARROW_MT_organizerPie(Menu):
         other_menu.label(text="Sort by type")
         other_menu.operator("set.all_coll", text="Sort All                          ", icon="OUTLINER_OB_GROUP_INSTANCE")
         other_menu.separator()
-        other_menu.operator("set.cutter_coll", text="Cutters",icon="MOD_BOOLEAN")
-        other_menu.operator("set.curve_coll", text="Curves", icon="MOD_CURVE")
-        other_menu.operator("set.empty_coll", text="Empties", icon="EMPTY_AXIS")
         other_menu.operator("set.arms_coll", text="Armatures", icon="ARMATURE_DATA")
+        other_menu.operator("set.curve_coll", text="Curves", icon="MOD_CURVE")
+        other_menu.operator("set.cutter_coll", text="Cutters",icon="MOD_BOOLEAN")
+        other_menu.operator("set.empty_coll", text="Empties", icon="EMPTY_AXIS")
         pie.separator()
         pie.separator()
         other = pie.column()
@@ -761,7 +761,7 @@ class DARROW_MT_organizerPie(Menu):
         gap.scale_y = 9.25
         other_menu = other.box().column(align=True)
         other_menu.scale_y=1.5
-        other_menu.label(text="Outliner Tools")
+        other_menu.label(text="Outliner tools")
         other_menu.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
         other_menu.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
 
