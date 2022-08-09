@@ -219,6 +219,7 @@ def get_layer_collection(collection):
 def toggleCollectionVis(ob, collectionName, bool):
     if str(ob.users_collection[0].name) == collectionName:
         """Blender makes things hard and throws an error if you try to directly access a nested collection from the viewlayer. This was a workaround I found online."""
+
         coll = get_layer_collection(bpy.data.collections[collectionName])
         coll.hide_viewport = bool
         coll.hide_viewport = not coll.hide_viewport
@@ -773,13 +774,13 @@ class DARROW_MT_organizerPie(Menu):
         other_menu.operator("darrow.rename_high", text="Add 'high'",)
         other_menu.operator("darrow.rename_low", text="Add 'low'",)
         other_menu.operator("darrow.rename_clean", text="Strip Name", icon="TRASH")
-
+        
     def execute(self, context):
         return {'FINISHED'}
 
     def invoke(self, context, event):
         return context.window_manager.invoke_popup(self)
-
+        
     def top_header(self,layout):
         top_header = layout.column()
         top_header.scale_y = 0.8
