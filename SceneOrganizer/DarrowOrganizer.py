@@ -382,7 +382,7 @@ class DarrowCleanName(bpy.types.Operator):
         return {'FINISHED'}
 
 def get_layer_collection(collection):
-    '''Returns the view layer LayerCollection for a specificied Collection'''
+    '''Returns the view layer LayerCollection for a specified Collection'''
     def scan_children(lc, result=None):
         for c in lc.children:
             if c.collection == collection:
@@ -394,12 +394,34 @@ def get_layer_collection(collection):
 
 def toggleCollectionVis(ob, collectionName, bool):
     if str(ob.users_collection[0].name) == collectionName:
+        """Blender makes things hard and throws an error if you try to directly access a nested collection from the viewlayer. This was a workaround I found online."""
         get_layer_collection(ob.users_collection[0]).hide_viewport = bool
         get_layer_collection(ob.users_collection[0]).hide_viewport = not get_layer_collection(ob.users_collection[0]).hide_viewport
+
+        # Make sure the parent collection "_SceneOrganizer" is visible
+        get_layer_collection(bpy.data.collections["_SceneOrganizer"]).hide_viewport = False
 
         ob.hide_set(bool)
         ob.hide_set(not bool)
 
+def MakeCollections(name, color):
+    collectionFound = False
+
+    for myCol in bpy.data.collections:
+        if myCol.name == "_SceneOrganizer":
+            collectionFound = True
+            master_collection = bpy.data.collections["_SceneOrganizer"]
+            break
+
+    if collectionFound == False:    
+        master_collection = bpy.data.collections.new("_SceneOrganizer")
+        bpy.context.scene.collection.children.link(master_collection)
+    new_collection = bpy.data.collections.new(name)
+
+    bpy.data.collections[master_collection.name].color_tag = 'COLOR_05'
+    bpy.data.collections[new_collection.name].color_tag = color
+    master_collection.children.link(new_collection)
+   
 class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
@@ -671,24 +693,6 @@ class DarrowSetArmsCollection(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def MakeCollections(name, color):
-    collectionFound = False
-
-    for myCol in bpy.data.collections:
-        if myCol.name == "_SceneOrganizer":
-            collectionFound = True
-            master_collection = bpy.data.collections["_SceneOrganizer"]
-            break
-
-    if collectionFound == False:    
-        master_collection = bpy.data.collections.new("_SceneOrganizer")
-        bpy.context.scene.collection.children.link(master_collection)
-    new_collection = bpy.data.collections.new(name)
-
-    bpy.data.collections[master_collection.name].color_tag = 'COLOR_05'
-    bpy.data.collections[new_collection.name].color_tag = color
-    master_collection.children.link(new_collection)
-   
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
