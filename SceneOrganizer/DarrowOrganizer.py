@@ -787,7 +787,7 @@ class DARROW_MT_organizerPie(Menu):
         top_header.label(text="")
 
 class SceneOrganizerPopUpCallback(bpy.types.Operator):
-    bl_label = "Easy Export Popup"
+    bl_label = "Scene Organizer Popup"
     bl_idname = "darrow.organizer_popup_callback"
 
     def execute(self, context):
