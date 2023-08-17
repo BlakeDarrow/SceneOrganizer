@@ -24,7 +24,11 @@ import bpy
 import bmesh
 from bpy.props import BoolProperty
 from bpy.types import Menu
- 
+from math import sqrt
+import mathutils
+import random
+from mathutils import Vector
+
 def updateBooleanVisibility(self, context):
     DarrowToggleCutters.execute(self,context)
  
@@ -45,6 +49,9 @@ def updateMaterialVisibility(self, context):
 
 def updateWireframeVisibility(self, context):
     DarrowWireframe.execute(self,context)
+
+def updateOverlapVisibility(self, context):
+    DarrowToggleOverlap.execute(self,context)
 
 def toggle_expand(context, state):
     area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
@@ -285,6 +292,11 @@ class OrganizerSettings(bpy.types.PropertyGroup):
         update = updateWireframeVisibility,
         default=False,
     )
+    overlapVis : BoolProperty(
+        name = "Overlapping Visibility",
+        update = updateOverlapVisibility,
+        default=False,
+    )
 
 class DarrowOrganizePanel():
     bl_category = "DarrowTools"
@@ -305,83 +317,41 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
     def draw(self, context):
         scn = bpy.context.scene
         layout = self.layout
+
         col = layout.column(align=True)
-        col.scale_y = 1
-        col.label(text="Hide and sort by type")
+        col.label(text="Overlap Searching (Sequential)")
         col_1 = layout.box().column()
         col_1.scale_y = 1.33
-        col_1 = col_1.split(factor=0.5, align=True)
+      
+        panel = col_1.column(align=True)
+        panel.prop(context.scene, "originTolerance", text="Origin", slider=True)
+        panel.prop(context.scene, "boundsTolerance", text="Bounds", slider=True)
+        panel.prop(context.scene, "vertTolerance", text="Vertex", slider=True)
 
-        split = col_1.split(factor=0.3, align=True)
-        panel = split.column(align=True)
-        icon = split.column(align=True)
-
-        col_2 = col_1.split(factor=1, align=True)
-        split_2 = col_2.split(factor=0.7, align=True)
-        icon_2 = split_2.column(align=True)
-        panel_2 = split_2.column(align=True)
+        col = layout.column(align=True)
+        col.label(text="Viewport Tools")
+        col_1 = layout.box().column()
+        panel = col_1.column(align=True)
+        col_1.scale_y = 1.1
+        cf4 = panel.column_flow(columns=2, align=True)
+        cf4.prop(scn.my_settings, 'materialVis',text = "Material", toggle = True)
         
-        col = layout.box().row().split(align=True)
-        col.scale_y = 1.1
-
-        icon.operator('set.cutter_coll',text="Cutters", )
-        panel.prop(scn.my_settings, 'booleanVis',text = "", toggle=True, icon="MOD_BOOLEAN")
-
-        icon_2.operator('set.curve_coll', text = "Curves", )
-        panel_2.prop(scn.my_settings, 'curveVis', text="", toggle=True, icon='MOD_CURVE')
-
-        icon.operator('set.empty_coll', text="Empties", )
-        panel.prop(scn.my_settings, 'emptiesVis',text = "", toggle=True, icon="EMPTY_AXIS")
-        
-        icon_2.operator('set.arms_coll', text="Arms", )
-        panel_2.prop(scn.my_settings, 'armsVis',text = "", toggle=True, icon="ARMATURE_DATA")
-     
-        col.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
-        col.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
-
-        if bpy.context.scene.showSceneAdvancedOptionsBool == True:
-            col = layout.box()
-            col.scale_y = 1.1
-            col.prop(context.scene, "volumeCurves_Bool", text="Zero-volume curves")
-            col.prop(context.scene,'iconOnly_Bool', text ="Display only icons in outliner")
-
-class DARROW_PT_organizePanel_2(DarrowOrganizePanel, bpy.types.Panel):
-    bl_parent_id = "DARROW_PT_organizePanel"
-    bl_label = "Naming"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row(align=True)
-        cf = row.split(align=True)
-        cf.scale_y = 1.33
-        cf.operator('darrow.rename_high', text="_high",)
-        cf.operator('darrow.rename_low', text="_low",)
-        row = row.row(align=True)
-        row.scale_y = 1.33
-        row.operator('darrow.rename_clean', text="Strip", icon="TRASH")
-
-class DARROW_PT_organizePanel_3(DarrowOrganizePanel, bpy.types.Panel):
-    bl_parent_id = "DARROW_PT_organizePanel"
-    bl_label = "Viewport"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-        scn = bpy.context.scene
-
-        cf4 = layout.column_flow(columns=2, align=True)
-        cf4.scale_y = 1.1
-        cf4.prop(scn.my_settings, 'wireframeVis',text = "Wireframe")
         rand = cf4.column(align=True)
-        rand.prop(scn.my_settings, 'randomVis', text = "Random")
-        mat = cf4.column(align=True)
-        mat.prop(scn.my_settings, 'materialVis',text = "Material")
-        
+        rand.prop(scn.my_settings, 'randomVis', text = "Random", toggle = True)
+        mat = panel.row(align=True)
+        mat.prop(scn.my_settings, 'wireframeVis',text = "Wireframe", toggle = True)
+
         if scn.my_settings.randomVis == True:
                 mat.enabled = False
         if scn.my_settings.materialVis == True:
                 rand.enabled = False
+
+        if bpy.context.scene.showSceneAdvancedOptionsBool == True:
+            col = layout.box()
+            col.scale_y = 1.1
+
+            col.prop(context.scene, "volumeCurves_Bool", text="Zero-volume curves")
+            col.prop(context.scene,'iconOnly_Bool', text ="Display only icons in outliner")
 
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
@@ -444,6 +414,21 @@ class DarrowCleanName(bpy.types.Operator):
             strip(obj)
         return {'FINISHED'}
 
+class DarrowClearAnnotate(bpy.types.Operator):
+    bl_label = "Clear All Annotations"
+    bl_idname = "darrow.clear_annotations"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "Clear ALL annotations"
+
+    def execute(self, context):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+
+        grease_pencil_blocks = [block for block in bpy.data.grease_pencils]
+        for gpencil in grease_pencil_blocks:
+            bpy.data.grease_pencils.remove(gpencil)
+     
+        return {'FINISHED'}
+
 class DarrowToggleCutters(bpy.types.Operator):
     bl_label = "Toggle Cutters"
     bl_idname = "darrow.toggle_cutters"
@@ -458,6 +443,21 @@ class DarrowToggleCutters(bpy.types.Operator):
                 if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
                     toggleCollectionVis(ob, "_Cutters", bpy.context.scene.cutterVis_Bool)
 
+        return {'FINISHED'}
+
+class DarrowToggleOverlap(bpy.types.Operator):
+    bl_label = "Toggle Overlap"
+    bl_idname = "darrow.toggle_overlap"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "Toggle the visibility of curves."
+
+    def execute(self, context):
+        bpy.context.scene.overlapVis_Bool = not bpy.context.scene.overlapVis_Bool
+
+        for ob in bpy.data.objects:
+            if "_Overlapping" in ob.users_collection[0].name:
+                toggleCollectionVis(ob, "_Overlapping", bpy.context.scene.overlapVis_Bool)
+                   
         return {'FINISHED'}
 
 class DarrowToggleCurves(bpy.types.Operator):
@@ -637,6 +637,164 @@ class DarrowSetCurveCollection(bpy.types.Operator):
        
         return {'FINISHED'}
 
+class DarrowSetOverlap(bpy.types.Operator):
+    bl_idname = "set.overlap"
+    bl_description = "Group All Overlapping Objects"
+    bl_label = "Group All Overlapping Objects"
+ 
+    def find_overlapping_objects(self, context):
+        overlap_collection_name = "_Overlapping"
+
+        def highest_vert_count(objects_list):
+            most_geometry_objects = []
+
+            for objects in objects_list:
+                object_with_highest_vertex_count = None
+                highest_vertex_count = 0
+
+                for obj in objects:
+                    vertex_count = len(obj.data.vertices)
+                    if vertex_count >= highest_vertex_count:
+                        highest_vertex_count = vertex_count
+                        object_with_highest_vertex_count = obj
+
+                most_geometry_objects.append(object_with_highest_vertex_count)
+
+            return most_geometry_objects
+
+        def check_overlap(obj_list):
+
+            origin_tolerance = bpy.context.scene.originTolerance
+            bounds_tolerance = bpy.context.scene.boundsTolerance
+            vert_tolerance = bpy.context.scene.vertTolerance
+
+            def find_matching_origin(objects, tolerance):
+                object_sets = []
+                
+                for obj1 in objects:
+                    found = False
+                    for obj_set in object_sets:
+                        if obj1 in obj_set:
+                            found = True
+                            break
+                    
+                    if not found:
+                        obj_set = [obj1]
+                        origin1 = obj1.location
+                        
+                        for obj2 in objects:
+                            if obj2 != obj1:
+                                origin2 = obj2.location
+                                distance = (origin1 - origin2).length
+                                if distance <= tolerance:
+                                    obj_set.append(obj2)
+                        
+                        object_sets.append(obj_set)
+                
+                return object_sets
+            
+            def find_matching_bounds(object_list, bounds_tolerance):
+                new_list = []
+
+                for obj_set in object_list:
+                    overlapping_objects = set()  # Use a set to avoid duplicates
+                    for i, obj1 in enumerate(obj_set):
+                        for j, obj2 in enumerate(obj_set):
+                            if i != j:  # Avoid comparing the same object
+                                bounds1 = obj1.bound_box
+                                bounds2 = obj2.bound_box
+
+                                # Convert bound_box vertices to world coordinates
+                                world_bounds1 = [obj1.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds1]
+                                world_bounds2 = [obj2.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds2]
+
+                                overlap = False
+                                for wv1 in world_bounds1:
+                                    for wv2 in world_bounds2:
+                                        if (wv1 - wv2).length <= bounds_tolerance:
+                                            overlap = True
+                                            break
+                                    if overlap:
+                                        break
+
+                                if overlap:
+                                    overlapping_objects.add(obj1)
+                                    overlapping_objects.add(obj2)
+
+                    new_list.append(list(overlapping_objects))
+                
+                return new_list
+            
+            def find_matching_vertices(object_list, vertex_tolerance):
+                new_list = []
+
+                for obj_set in object_list:
+                    overlapping_objects = set()  # Use a set to avoid duplicates
+
+                    for i, obj1 in enumerate(obj_set):
+                        for j, obj2 in enumerate(obj_set):
+                            if i != j:  # Avoid comparing the same object
+                                vertices1 = [obj1.matrix_world @ Vector(v.co) for v in obj1.data.vertices]
+                                vertices2 = [obj2.matrix_world @ Vector(v.co) for v in obj2.data.vertices]
+
+                                overlap = False
+                                for v1 in vertices1:
+                                    for v2 in vertices2:
+                                        if (v1 - v2).length <= vertex_tolerance:
+                                            overlap = True
+                                            break
+                                    if overlap:
+                                        break
+
+                                if overlap:
+                                    overlapping_objects.add(obj1)
+                                    overlapping_objects.add(obj2)
+
+                    new_list.append(list(overlapping_objects))
+
+                return new_list
+            
+            matching_origins = find_matching_origin(obj_list, origin_tolerance)
+            matching_bounds = find_matching_bounds(matching_origins, bounds_tolerance)
+            matching_vertex = find_matching_vertices(matching_bounds, vert_tolerance)
+
+            return matching_vertex
+
+        search_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH' and obj.users_collection[0].name != "_Overlapping"]
+    
+        overlapping_objs = check_overlap(search_objects)
+
+        if overlapping_objs:
+            collectionFound = False
+            most_geometry_obj = None
+
+            if most_geometry_obj in overlapping_objs:
+                overlapping_objs.remove(most_geometry_obj)
+
+            for myCol in bpy.data.collections:
+                if myCol.name == overlap_collection_name:
+                    collectionFound = True
+                    break
+
+            overlapping_objs = list(filter(lambda x: x != [], overlapping_objs))
+            if collectionFound == False and not len(overlapping_objs) == 0:
+                MakeCollections(overlap_collection_name, "COLOR_06", context.scene.my_settings.overlapVis)
+
+            highestLODs = highest_vert_count(overlapping_objs)
+
+            if len(overlapping_objs) != 0:
+                for group in overlapping_objs:
+                    for obj in group:
+                        if obj is not None and obj not in highestLODs:
+                            for coll in obj.users_collection:
+                                coll.objects.unlink(obj)
+                            bpy.data.collections[overlap_collection_name].objects.link(obj)
+
+    def execute(self, context):
+        context = bpy.context
+        DarrowSetOverlap.find_overlapping_objects(DarrowSetOverlap, context)
+        return {'FINISHED'}
+    
 class DarrowSetCollection(bpy.types.Operator):
     bl_idname = "set.empty_coll"
     bl_description = "Move all empties to a collection"
@@ -726,6 +884,7 @@ class DarrowSetAllCollections(bpy.types.Operator):
         DarrowSetCurveCollection.execute(self,context)
         DarrowSetCollection.execute(self,context)
         DarrowSetArmsCollection.execute(self,context)
+        DarrowSetOverlap.execute(self,context)
         return {'FINISHED'}
 
 class DARROW_MT_organizerPie(Menu):
@@ -740,10 +899,11 @@ class DARROW_MT_organizerPie(Menu):
         pie.prop(context.scene.my_settings, 'emptiesVis',text = "Empties", toggle=True, icon="EMPTY_AXIS")
         pie.prop(context.scene.my_settings, 'armsVis',text = "Armatures", toggle=True, icon="ARMATURE_DATA")
         pie.prop(context.scene.my_settings, 'curveVis',text = "Curves", toggle=True, icon="MOD_CURVE")
-        pie.separator()
+        pie.prop(context.scene.my_settings, 'overlapVis',text = "Overlapping", toggle=True, icon="MESH_CUBE")
         pie.separator()
         other = pie.column()
         gap = other.column()
+        gap.separator()
         gap.separator()
         gap.separator()
         gap.scale_y = 7
@@ -758,8 +918,10 @@ class DARROW_MT_organizerPie(Menu):
         other_menu.operator("set.curve_coll", text="Curves", icon="MOD_CURVE")
         other_menu.operator("set.cutter_coll", text="Cutters",icon="MOD_BOOLEAN")
         other_menu.operator("set.empty_coll", text="Empties", icon="EMPTY_AXIS")
+        other_menu.operator("set.overlap", text="Overlap", icon="MESH_CUBE")
         other = pie.column()
         gap = other.column()
+        gap.separator()
         gap.separator()
         gap.separator()
         gap.scale_y = 7
@@ -767,13 +929,14 @@ class DARROW_MT_organizerPie(Menu):
         other_menu = other.box().column(align=True)
         other_menu.scale_y=yScale
         other_menu.scale_x=xScale
-        other_menu.label(text="Outliner tools")
+        other_menu.label(text="Other tools")
         other_menu.operator('collapse.scene', text="Collapse", icon="SORT_ASC")
         other_menu.operator('darrow.sort_outliner',text="Sort", icon="SORTALPHA")
         other_menu.separator()
         other_menu.operator("darrow.rename_high", text="Add 'high'",)
         other_menu.operator("darrow.rename_low", text="Add 'low'",)
         other_menu.operator("darrow.rename_clean", text="Strip Name", icon="TRASH")
+        other_menu.operator("darrow.clear_annotations", text="Clear Pencil", icon="TRASH")
         
     def execute(self, context):
         return {'FINISHED'}
@@ -787,7 +950,7 @@ class DARROW_MT_organizerPie(Menu):
         top_header.label(text="")
 
 class SceneOrganizerPopUpCallback(bpy.types.Operator):
-    bl_label = "Easy Export Popup"
+    bl_label = "Scene Organizer Popup"
     bl_idname = "darrow.organizer_popup_callback"
 
     def execute(self, context):
@@ -801,10 +964,10 @@ def sceneDropdown(self, context):
 #-----------------------------------------------------#  
 #   Registration classes
 #-----------------------------------------------------#
-classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,DARROW_PT_organizePanel_2,DARROW_PT_organizePanel_3,OrganizerSettings,DarrowSort,
+classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
-            DarrowToggleCutters, DarrowCollapseOutliner, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
-            SceneOrganizerPopUpCallback,DARROW_MT_organizerPie,DarrowSetAllCollections,)
+            DarrowToggleCutters, DarrowCollapseOutliner, DarrowToggleOverlap, DarrowSetOverlap, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
+            SceneOrganizerPopUpCallback,DARROW_MT_organizerPie,DarrowSetAllCollections, DarrowClearAnnotate)
 addon_keymaps = []
 
 def register():
@@ -839,6 +1002,12 @@ def register():
         default=False
     )
 
+    bpy.types.Scene.overlapVis_Bool = bpy.props.BoolProperty(
+        name="Overlap Bool",
+        description="Toggle visibility of overlapping mesh",
+        default=False
+    )
+
     bpy.types.Scene.armsVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of armatures",
@@ -863,20 +1032,45 @@ def register():
         )
 
     bpy.types.Scene.compactBool = bpy.props.BoolProperty(
-    name = "Advanced",
-    description = "Toggle Advanced Mode",
-    default = False
+        name = "Advanced",
+        description = "Toggle Advanced Mode",
+        default = False
     )
 
     bpy.types.Scene.showWireframeBool = bpy.props.BoolProperty(
-    name = "Toggle Wireframe",
-    description = "Toggle visibility of wireframe mode",
-    default = False
+        name = "Toggle Wireframe",
+        description = "Toggle visibility of wireframe mode",
+        default = False
     )
+
     bpy.types.Scene.showSceneAdvancedOptionsBool = bpy.props.BoolProperty(
         name="Advanced",
         description="Show advanced options",
         default=False
+    )
+
+    bpy.types.Scene.originTolerance = bpy.props.FloatProperty(
+        name="Origin Tolerance (Distance)",
+        description="Amount of distance between object origin points when searching for overlapping faces",
+        default = 0.01,
+        soft_min = 0.01,
+        soft_max = 10
+    )
+
+    bpy.types.Scene.boundsTolerance = bpy.props.FloatProperty(
+        name="Bounds Tolerance (Distance)",
+        description="Amount of bounding box padding when searching for overlapping faces",
+        default = 1, 
+        soft_min = 0.01,
+        soft_max = 10
+    )
+
+    bpy.types.Scene.vertTolerance = bpy.props.FloatProperty(
+        name="Vertex Tolerance (Distance)",
+        description="Amount of vertex search distance when searching for overlapping faces",
+        default = 0.1,
+        soft_min = 0.01,
+        soft_max = 10
     )
 
 def unregister():
