@@ -321,7 +321,7 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         col = layout.column(align=True)
         col.label(text="Overlap Searching (Sequential)")
         col_1 = layout.box().column()
-        col_1.scale_y = 1.33
+        col_1.scale_y = 1.1
       
         panel = col_1.column(align=True)
         panel.prop(context.scene, "originTolerance", text="Origin", slider=True)
@@ -347,11 +347,15 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
                 rand.enabled = False
 
         if bpy.context.scene.showSceneAdvancedOptionsBool == True:
-            col = layout.box()
+            box = layout.box()
+            col = box.column(align=True)
             col.scale_y = 1.1
 
-            col.prop(context.scene, "volumeCurves_Bool", text="Zero-volume curves")
-            col.prop(context.scene,'iconOnly_Bool', text ="Display only icons in outliner")
+            col.prop(context.scene, "volumeCurves_Bool", text="Zero-volume curves", toggle = True)
+            col.prop(context.scene,'excludeOverlapSort', text ="Exclude 'Overlap' for 'Sort All'", toggle = True)
+            col.prop(context.scene,'iconOnly_Bool', text ="Display only icons in outliner", toggle = True)
+            col.prop(context.scene, "maxSearchVerts", text="Vertex Search Depth", slider = True)
+            
 
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
@@ -639,20 +643,21 @@ class DarrowSetCurveCollection(bpy.types.Operator):
 
 class DarrowSetOverlap(bpy.types.Operator):
     bl_idname = "set.overlap"
-    bl_description = "Group All Overlapping Objects"
+    bl_description = "Group All Overlapping Objects. This can be slow with large scenes. You can disable this from running in the 'Sort All' operation inside the 'Scene Organizer' panel settings"
     bl_label = "Group All Overlapping Objects"
  
     def find_overlapping_objects(self, context):
         overlap_collection_name = "_Overlapping"
+        print("##############################")
 
         def highest_vert_count(objects_list):
             most_geometry_objects = []
 
-            for objects in objects_list:
+            for list in objects_list:
                 object_with_highest_vertex_count = None
                 highest_vertex_count = 0
 
-                for obj in objects:
+                for obj in list:
                     vertex_count = len(obj.data.vertices)
                     if vertex_count >= highest_vertex_count:
                         highest_vertex_count = vertex_count
@@ -693,49 +698,53 @@ class DarrowSetOverlap(bpy.types.Operator):
                 
                 return object_sets
             
-            def find_matching_bounds(object_list, bounds_tolerance):
+            def find_matching_bounds(matches_list, bounds_tolerance):
                 new_list = []
-
-                for obj_set in object_list:
-                    overlapping_objects = set()  # Use a set to avoid duplicates
-                    for i, obj1 in enumerate(obj_set):
-                        for j, obj2 in enumerate(obj_set):
-                            if i != j:  # Avoid comparing the same object
-                                bounds1 = obj1.bound_box
-                                bounds2 = obj2.bound_box
-
-                                # Convert bound_box vertices to world coordinates
-                                world_bounds1 = [obj1.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds1]
-                                world_bounds2 = [obj2.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds2]
-
-                                overlap = False
-                                for wv1 in world_bounds1:
-                                    for wv2 in world_bounds2:
-                                        if (wv1 - wv2).length <= bounds_tolerance:
-                                            overlap = True
-                                            break
-                                    if overlap:
-                                        break
-
-                                if overlap:
-                                    overlapping_objects.add(obj1)
-                                    overlapping_objects.add(obj2)
-
-                    new_list.append(list(overlapping_objects))
                 
-                return new_list
+                for origin_matches in matches_list:
+                   
+                    world_bounds = []
+                    for obj in origin_matches:
+                        bounds = obj.bound_box
+                        world_bounds.append([obj.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds])
+                   
+                    for i in range(len(origin_matches)):
+                        bound_matches = set()
+                        for j in range(i + 1, len(origin_matches)):
+                            overlap = False
+                            for wv1 in world_bounds[i]:
+                                for wv2 in world_bounds[j]:
+                                    if (wv1 - wv2).length <= bounds_tolerance:
+                                        overlap = True
+                                        break
+                                if overlap:
+                                    break
+
+                            if overlap:
+                                if origin_matches[i] not in bound_matches:
+                                    bound_matches.add(origin_matches[i])
+                                if origin_matches[j] not in bound_matches:
+                                    bound_matches.add(origin_matches[j])
+
+                        if bound_matches not in new_list:
+                            new_list.append(list(bound_matches))
+                    
+                res = []
+                [res.append(x) for x in new_list if x not in res]
+                return res
             
             def find_matching_vertices(object_list, vertex_tolerance):
                 new_list = []
+                max_search_verts = bpy.context.scene.maxSearchVerts
 
                 for obj_set in object_list:
-                    overlapping_objects = set()  # Use a set to avoid duplicates
-
+                    
                     for i, obj1 in enumerate(obj_set):
+                        overlapping_objects = set() 
                         for j, obj2 in enumerate(obj_set):
-                            if i != j:  # Avoid comparing the same object
-                                vertices1 = [obj1.matrix_world @ Vector(v.co) for v in obj1.data.vertices]
-                                vertices2 = [obj2.matrix_world @ Vector(v.co) for v in obj2.data.vertices]
+                            if i != j:
+                                vertices1 = [obj1.matrix_world @ Vector(v.co) for v in obj1.data.vertices[:max_search_verts]]
+                                vertices2 = [obj2.matrix_world @ Vector(v.co) for v in obj2.data.vertices[:max_search_verts]]
 
                                 overlap = False
                                 for v1 in vertices1:
@@ -750,10 +759,10 @@ class DarrowSetOverlap(bpy.types.Operator):
                                     overlapping_objects.add(obj1)
                                     overlapping_objects.add(obj2)
 
-                    new_list.append(list(overlapping_objects))
+                        new_list.append(list(overlapping_objects))
 
                 return new_list
-            
+
             matching_origins = find_matching_origin(obj_list, origin_tolerance)
             matching_bounds = find_matching_bounds(matching_origins, bounds_tolerance)
             matching_vertex = find_matching_vertices(matching_bounds, vert_tolerance)
@@ -782,13 +791,25 @@ class DarrowSetOverlap(bpy.types.Operator):
 
             highestLODs = highest_vert_count(overlapping_objs)
 
-            if len(overlapping_objs) != 0:
-                for group in overlapping_objs:
-                    for obj in group:
-                        if obj is not None and obj not in highestLODs:
-                            for coll in obj.users_collection:
-                                coll.objects.unlink(obj)
-                            bpy.data.collections[overlap_collection_name].objects.link(obj)
+
+            print("")
+            print("Highest LOD per Set:")
+            print("")
+            print(highestLODs)
+            print("")
+            print("---------------")
+            print("")
+            print("Overlapping Object Sets:")
+            print("")
+            print(overlapping_objs)
+            print("")
+
+            for group in overlapping_objs:
+                for obj in group:
+                    if obj not in highestLODs:
+                        for coll in obj.users_collection:
+                            coll.objects.unlink(obj)
+                        bpy.data.collections[overlap_collection_name].objects.link(obj)
 
     def execute(self, context):
         context = bpy.context
@@ -884,7 +905,8 @@ class DarrowSetAllCollections(bpy.types.Operator):
         DarrowSetCurveCollection.execute(self,context)
         DarrowSetCollection.execute(self,context)
         DarrowSetArmsCollection.execute(self,context)
-        DarrowSetOverlap.execute(self,context)
+        if not bpy.context.scene.excludeOverlapSort:
+            DarrowSetOverlap.execute(self,context)
         return {'FINISHED'}
 
 class DARROW_MT_organizerPie(Menu):
@@ -899,7 +921,7 @@ class DARROW_MT_organizerPie(Menu):
         pie.prop(context.scene.my_settings, 'emptiesVis',text = "Empties", toggle=True, icon="EMPTY_AXIS")
         pie.prop(context.scene.my_settings, 'armsVis',text = "Armatures", toggle=True, icon="ARMATURE_DATA")
         pie.prop(context.scene.my_settings, 'curveVis',text = "Curves", toggle=True, icon="MOD_CURVE")
-        pie.prop(context.scene.my_settings, 'overlapVis',text = "Overlapping", toggle=True, icon="MESH_CUBE")
+        pie.prop(context.scene.my_settings, 'overlapVis',text = "Overlap", toggle=True, icon="MESH_CUBE")
         pie.separator()
         other = pie.column()
         gap = other.column()
@@ -990,6 +1012,21 @@ def register():
         description="Toggle visibility of cutters",
         default=False
     )
+
+    bpy.types.Scene.maxSearchVerts = bpy.props.IntProperty(
+        name="Max Vertex Search Count",
+        description="Max vertex to search through in any given mesh",
+        default=50,
+        max=1000,
+        min=0
+    )
+
+    bpy.types.Scene.excludeOverlapSort = bpy.props.BoolProperty(
+        name="Exclude overlap",
+        description="Exclude overlap from sorting",
+        default=False
+    )
+
     bpy.types.Scene.volumeCurves_Bool = bpy.props.BoolProperty(
         name="Volume Curves",
         description="(This can be slow when a large amount of curves are present in the scene.",
@@ -1054,23 +1091,23 @@ def register():
         description="Amount of distance between object origin points when searching for overlapping faces",
         default = 0.01,
         soft_min = 0.01,
-        soft_max = 10
+        soft_max = 1
     )
 
     bpy.types.Scene.boundsTolerance = bpy.props.FloatProperty(
         name="Bounds Tolerance (Distance)",
         description="Amount of bounding box padding when searching for overlapping faces",
-        default = 1, 
+        default = 0.1, 
         soft_min = 0.01,
-        soft_max = 10
+        soft_max = 0.75
     )
 
     bpy.types.Scene.vertTolerance = bpy.props.FloatProperty(
         name="Vertex Tolerance (Distance)",
         description="Amount of vertex search distance when searching for overlapping faces",
-        default = 0.1,
-        soft_min = 0.01,
-        soft_max = 10
+        default = 2,
+        soft_min = 0,
+        soft_max = 5
     )
 
 def unregister():
