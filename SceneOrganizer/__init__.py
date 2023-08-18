@@ -7,7 +7,7 @@ from bpy.props import IntProperty, BoolProperty
 bl_info = {
     "name": "Scene Organizer",
     "author": "Blake Darrow",
-    "version": (1, 2, 1),
+    "version": (1, 2, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > DarrowTools",
     "description": "Adds panel for scene organization. Shortcut 'Shift-E'",
@@ -65,7 +65,9 @@ class DarrowAddonPreferences(AddonPreferences):
     )
 
     def draw(self, context):
-        self.layout.label(text="Shift-E will bring up the viewport pie menu.")
+        layout = self.layout
+        layout.label(text="Shift-E will bring up the viewport pie menu.")
+
         addon_updater_ops.update_settings_ui(self, context)
 
 #-----------------------------------------------------#  
