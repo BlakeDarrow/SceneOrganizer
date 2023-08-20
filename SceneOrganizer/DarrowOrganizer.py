@@ -1,6 +1,6 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
-#   Copyright (C) 2022  Blake Darrow <contact@blakedarrow.com>
+#   Copyright (C) 2022, 2023  Blake Darrow <contact@blakedarrow.com>
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -17,16 +17,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-#-----------------------------------------------------#  
-#   Imports
-#-----------------------------------------------------# 
 import bpy
 import bmesh
 from bpy.props import BoolProperty
 from bpy.types import Menu
-from math import sqrt
-import mathutils
-import random
+import time
+import datetime
 from mathutils import Vector
 
 def updateBooleanVisibility(self, context):
@@ -223,7 +219,7 @@ def get_layer_collection(collection):
 
     return scan_children(bpy.context.view_layer.layer_collection)
 
-def toggleCollectionVis(ob, collectionName, bool):
+def toggleCollectionVis(ob, collectionName, bool, parentCollName = None):
     if str(ob.users_collection[0].name) == collectionName:
         """Blender makes things hard and throws an error if you try to directly access a nested collection from the viewlayer. This was a workaround I found online."""
 
@@ -233,6 +229,15 @@ def toggleCollectionVis(ob, collectionName, bool):
 
         # Make sure the parent collection "_SceneOrganizer" is visible
         get_layer_collection(bpy.data.collections["_SceneOrganizer"]).hide_viewport = False
+
+        # If additional parent collection, make sure its visible
+        if parentCollName != None:
+            coll2 = get_layer_collection(bpy.data.collections[parentCollName])
+
+            coll2.hide_viewport = bool
+            coll2.hide_viewport = not coll2.hide_viewport
+
+            bpy.data.collections[parentCollName].hide_viewport = False
 
     ob.hide_set(bool)
     ob.hide_set(not bool)
@@ -458,8 +463,8 @@ class DarrowToggleOverlap(bpy.types.Operator):
         bpy.context.scene.overlapVis_Bool = not bpy.context.scene.overlapVis_Bool
 
         for ob in bpy.data.objects:
-            if "_Overlapping" in ob.users_collection[0].name:
-                toggleCollectionVis(ob, "_Overlapping", bpy.context.scene.overlapVis_Bool)
+            if "Match: " in ob.users_collection[0].name:
+                toggleCollectionVis(ob, ob.users_collection[0].name, bpy.context.scene.overlapVis_Bool, parentCollName="_Overlapping")
                    
         return {'FINISHED'}
 
@@ -642,12 +647,11 @@ class DarrowSetCurveCollection(bpy.types.Operator):
 
 class DarrowSetOverlap(bpy.types.Operator):
     bl_idname = "set.overlap"
-    bl_description = "Group All Overlapping Objects. This can be slow with large scenes. You can disable this from running in the 'Sort All' operation inside the 'Scene Organizer' panel settings"
-    bl_label = "Group All Overlapping Objects"
+    bl_description = "Move all overlapping objects. Generally helpful to sort LODs. This can be slow with large scenes. You can disable this from running in the 'Sort All' operation inside the 'Scene Organizer' panel settings"
+    bl_label = "Group All Overlapping Objects."
     bl_options = {'UNDO'}
  
     def find_overlapping_objects(self, context):
-
         def check_objs_overlap(obj_list):
 
             origin_tolerance = bpy.context.scene.originTolerance
@@ -766,33 +770,42 @@ class DarrowSetOverlap(bpy.types.Operator):
 
         def move_to_collections(matches_dict):
             overlap_collection_name = "_Overlapping"
-            overlapping_obj_names = []
-            exclude_objs = []
-            
-            for keys in matches_dict:
-                overlapping_obj_names.append(matches_dict[keys][0])
-                exclude_objs.append(matches_dict[keys][1])
-            
-            combined_obj_names = [element for sublist in overlapping_obj_names for element in sublist]
-            
-            if exclude_objs and combined_obj_names:
-                collectionFound = False
+            collectionFound = False
+            for myCol in bpy.data.collections:
+                if myCol.name == overlap_collection_name:
+                    collectionFound = True
+                    break
 
-                for myCol in bpy.data.collections:
-                    if myCol.name == overlap_collection_name:
-                        collectionFound = True
-                        break
-
-                if collectionFound == False and len(combined_obj_names) != 0:
-                    MakeCollections(overlap_collection_name, "COLOR_06", context.scene.my_settings.overlapVis)
-
-                bpy.ops.ed.undo_push() #https://blenderartists.org/t/best-practice-for-allowing-undo-to-work-in-custom-operators/1137780/6
-                for obj_name in combined_obj_names:
-                    obj = bpy.data.objects[obj_name]
-                    if obj not in exclude_objs:
+            if collectionFound == False and len(matches_dict) != 0:
+                MakeCollections(overlap_collection_name, "COLOR_06", context.scene.my_settings.overlapVis)
+    
+            # Create the parent overlapping collection if not found
+            if overlap_collection_name not in bpy.data.collections:
+                overlap_collection = bpy.data.collections.new(overlap_collection_name)
+                bpy.context.scene.collection.children.link(overlap_collection)
+            
+            bpy.ops.ed.undo_push()
+            
+            for match_key, data_list in matches_dict.items():
+                child_collection_name = "Match: " +  str(data_list[1].name)
+                if child_collection_name not in bpy.data.collections:
+                    child_collection = bpy.data.collections.new(child_collection_name)
+                    bpy.data.collections[child_collection_name].color_tag = 'COLOR_08'
+                    bpy.data.collections[overlap_collection_name].children.link(child_collection)
+                else:
+                    child_collection = bpy.data.collections[child_collection_name]
+               
+                objects_to_link = data_list[0]
+                
+                for obj_name in objects_to_link:
+                    obj = bpy.data.objects.get(obj_name)
+                    if obj and obj != data_list[1]:
                         for coll in obj.users_collection:
                             coll.objects.unlink(obj)
-                        bpy.data.collections[overlap_collection_name].objects.link(obj)
+                        child_collection.objects.link(obj)
+                
+            bpy.ops.ed.undo_push()
+            bpy.context.view_layer.update()
 
         search_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH' and obj.users_collection[0].name != "_Overlapping"]
 
@@ -800,11 +813,23 @@ class DarrowSetOverlap(bpy.types.Operator):
         highestLODs = find_most_verts(overlapping_objs)
         move_to_collections(highestLODs)
 
+        #print(highestLODs)
+
         return {'FINISHED'}
 
     def execute(self, context):
         context = bpy.context
+        start_time = time.perf_counter()
         DarrowSetOverlap.find_overlapping_objects(DarrowSetOverlap, context)
+        end_time = time.perf_counter()
+
+        run_time = end_time - start_time
+        execution_time_delta = datetime.timedelta(seconds=run_time)
+        minutes = execution_time_delta.seconds // 60
+        seconds = execution_time_delta.seconds % 60
+        milliseconds = execution_time_delta.microseconds // 1000
+        total_time = f"Time: {minutes} minutes and {seconds}.{milliseconds:03} seconds."
+        self.report({'INFO'}, total_time)
         return {'FINISHED'}
     
 class DarrowSetCollection(bpy.types.Operator):
@@ -888,7 +913,7 @@ class DarrowSetArmsCollection(bpy.types.Operator):
 
 class DarrowSetAllCollections(bpy.types.Operator):
     bl_idname = "set.all_coll"
-    bl_description = "Move all respective collections"
+    bl_description = "Sort all types and send to respective collections"
     bl_label = "Group All"
 
     def execute(self, context):
@@ -974,9 +999,6 @@ def sceneDropdown(self, context):
     layout = self.layout
     layout.operator('darrow.organizer_popup_callback', icon="RESTRICT_VIEW_ON", text = "Scene Organizer")
 
-#-----------------------------------------------------#  
-#   Registration classes
-#-----------------------------------------------------#
 classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
             DarrowToggleCutters, DarrowCollapseOutliner, DarrowToggleOverlap, DarrowSetOverlap, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
@@ -1007,7 +1029,7 @@ def register():
     bpy.types.Scene.maxSearchVerts = bpy.props.IntProperty(
         name="Max Vertex Search Count",
         description="Max vertices to search through in any given mesh when sorting by overlap",
-        default=100,
+        default=150,
         max=1000,
         min=0
     )
@@ -1088,15 +1110,15 @@ def register():
     bpy.types.Scene.boundsTolerance = bpy.props.FloatProperty(
         name="Bounds Tolerance (Distance)",
         description="Amount of bounding box padding when searching for overlapping faces",
-        default = 0.1, 
+        default = 0.35, 
         soft_min = 0.01,
-        soft_max = 0.75
+        soft_max = 0.1
     )
 
     bpy.types.Scene.vertTolerance = bpy.props.FloatProperty(
         name="Vertex Tolerance (Distance)",
         description="Amount of vertex search distance when searching for overlapping faces",
-        default = .25,
+        default = .5,
         soft_min = 0.1,
         soft_max = 2
     )
