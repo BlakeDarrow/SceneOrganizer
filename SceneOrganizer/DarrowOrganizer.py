@@ -351,12 +351,11 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
             col = box.column(align=True)
             col.scale_y = 1.1
 
-            col.prop(context.scene, "volumeCurves_Bool", text="Zero-volume curves", toggle = True)
-            col.prop(context.scene,'excludeOverlapSort', text ="Exclude 'Overlap' for 'Sort All'", toggle = True)
-            col.prop(context.scene,'iconOnly_Bool', text ="Display only icons in outliner", toggle = True)
             col.prop(context.scene, "maxSearchVerts", text="Vertex Search Depth", slider = True)
+            col.prop(context.scene, "volumeCurves_Bool", text="Disable Zero-Volume Checking", invert_checkbox = True ,toggle = True)
+            col.prop(context.scene,'excludeOverlapSort', text ="Disable Overlap for Sort All", toggle = True)
+            col.prop(context.scene,'iconOnly_Bool', text ="Disable Button Text in Outliner", toggle = True)
             
-
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
     bl_label = ""
@@ -645,10 +644,9 @@ class DarrowSetOverlap(bpy.types.Operator):
     bl_idname = "set.overlap"
     bl_description = "Group All Overlapping Objects. This can be slow with large scenes. You can disable this from running in the 'Sort All' operation inside the 'Scene Organizer' panel settings"
     bl_label = "Group All Overlapping Objects"
+    bl_options = {'UNDO'}
  
     def find_overlapping_objects(self, context):
-        overlap_collection_name = "_Overlapping"
-        print("##############################")
 
         def check_objs_overlap(obj_list):
 
@@ -723,16 +721,16 @@ class DarrowSetOverlap(bpy.types.Operator):
                                     if overlap:
                                         vertices1 = [object1.matrix_world @ Vector(v.co) for v in object1.data.vertices[:max_search_verts]]
                                         vertices2 = [object2.matrix_world @ Vector(v.co) for v in object2.data.vertices[:max_search_verts]]
-                                        ver_overlap = False
+                                        vert_overlap = False
                                         for v1 in vertices1:
                                             for v2 in vertices2:
                                                 if (v1 - v2).length <= vertex_tolerance:
-                                                    overlap = True
+                                                    vert_overlap = True
                                                     break
-                                            if ver_overlap:
+                                            if vert_overlap:
                                                 break
 
-                                    if overlap and vert_tolerance:
+                                    if overlap and vert_overlap:
                                         group.append(name2)
                                         grouped_objects[name2] = True
                                         shared_origin = shared_origin
@@ -788,6 +786,7 @@ class DarrowSetOverlap(bpy.types.Operator):
                 if collectionFound == False and len(combined_obj_names) != 0:
                     MakeCollections(overlap_collection_name, "COLOR_06", context.scene.my_settings.overlapVis)
 
+                bpy.ops.ed.undo_push() #https://blenderartists.org/t/best-practice-for-allowing-undo-to-work-in-custom-operators/1137780/6
                 for obj_name in combined_obj_names:
                     obj = bpy.data.objects[obj_name]
                     if obj not in exclude_objs:
@@ -801,7 +800,7 @@ class DarrowSetOverlap(bpy.types.Operator):
         highestLODs = find_most_verts(overlapping_objs)
         move_to_collections(highestLODs)
 
-        print(highestLODs)
+        return {'FINISHED'}
 
     def execute(self, context):
         context = bpy.context
@@ -1007,8 +1006,8 @@ def register():
 
     bpy.types.Scene.maxSearchVerts = bpy.props.IntProperty(
         name="Max Vertex Search Count",
-        description="Max vertex to search through in any given mesh",
-        default=50,
+        description="Max vertices to search through in any given mesh when sorting by overlap",
+        default=100,
         max=1000,
         min=0
     )
@@ -1021,7 +1020,7 @@ def register():
 
     bpy.types.Scene.volumeCurves_Bool = bpy.props.BoolProperty(
         name="Volume Curves",
-        description="(This can be slow when a large amount of curves are present in the scene.",
+        description="Only sort curves that have non-zero volume",
         default=True
     )
 
@@ -1097,9 +1096,9 @@ def register():
     bpy.types.Scene.vertTolerance = bpy.props.FloatProperty(
         name="Vertex Tolerance (Distance)",
         description="Amount of vertex search distance when searching for overlapping faces",
-        default = 2,
-        soft_min = 0,
-        soft_max = 5
+        default = .25,
+        soft_min = 0.1,
+        soft_max = 2
     )
 
 def unregister():
