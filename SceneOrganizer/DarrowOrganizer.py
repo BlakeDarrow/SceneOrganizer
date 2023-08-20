@@ -650,166 +650,158 @@ class DarrowSetOverlap(bpy.types.Operator):
         overlap_collection_name = "_Overlapping"
         print("##############################")
 
-        def highest_vert_count(objects_list):
-            most_geometry_objects = []
-
-            for list in objects_list:
-                object_with_highest_vertex_count = None
-                highest_vertex_count = 0
-
-                for obj in list:
-                    vertex_count = len(obj.data.vertices)
-                    if vertex_count >= highest_vertex_count:
-                        highest_vertex_count = vertex_count
-                        object_with_highest_vertex_count = obj
-
-                most_geometry_objects.append(object_with_highest_vertex_count)
-
-            return most_geometry_objects
-
-        def check_overlap(obj_list):
+        def check_objs_overlap(obj_list):
 
             origin_tolerance = bpy.context.scene.originTolerance
             bounds_tolerance = bpy.context.scene.boundsTolerance
             vert_tolerance = bpy.context.scene.vertTolerance
 
-            def find_matching_origin(objects, tolerance):
-                object_sets = []
-                
+            def find_origins(objects, tolerance):
+                matching_origins = dict()
+
                 for obj1 in objects:
-                    found = False
-                    for obj_set in object_sets:
-                        if obj1 in obj_set:
-                            found = True
-                            break
-                    
-                    if not found:
-                        obj_set = [obj1]
-                        origin1 = obj1.location
-                        
-                        for obj2 in objects:
-                            if obj2 != obj1:
-                                origin2 = obj2.location
-                                distance = (origin1 - origin2).length
-                                if distance <= tolerance:
-                                    obj_set.append(obj2)
-                        
-                        object_sets.append(obj_set)
-                
-                return object_sets
+                    origin1 = obj1.location
+                    matching_origins[str(origin1)] = []
+
+                for obj1 in objects:
+                    origin1 = obj1.location
+
+                    for obj2 in objects:
+                        if obj2 in matching_origins[str(origin1)]:
+                            continue
+
+                        if obj2 != obj1:
+                            origin2 = obj2.location
+                            distance = (origin1 - origin2).length
+                            if distance <= tolerance:
+                                matching_origins[str(origin1)].append(obj2)
+
+                return matching_origins
             
-            def find_matching_bounds(matches_list, bounds_tolerance):
-                new_list = []
-                
-                for origin_matches in matches_list:
-                   
-                    world_bounds = []
-                    for obj in origin_matches:
+            def find_bounds_verts(origin_dict, origin_tolerance, bounds_tolerance, vertex_tolerance):
+
+                matching_bounds = dict()
+                all_bounds = dict()
+
+                for key in origin_dict:
+
+                    for obj in origin_dict[key]:
+
+                        name = obj.name
                         bounds = obj.bound_box
-                        world_bounds.append([obj.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds])
-                   
-                    for i in range(len(origin_matches)):
-                        bound_matches = set()
-                        for j in range(i + 1, len(origin_matches)):
-                            overlap = False
-                            for wv1 in world_bounds[i]:
-                                for wv2 in world_bounds[j]:
-                                    if (wv1 - wv2).length <= bounds_tolerance:
-                                        overlap = True
-                                        break
-                                if overlap:
-                                    break
+                        origin = obj.location
+                        object = obj
+                        matrix = [obj.matrix_world @ Vector(bound_vertex) for bound_vertex in bounds]
+                        all_bounds[name] = [matrix, origin, object]
 
-                            if overlap:
-                                if origin_matches[i] not in bound_matches:
-                                    bound_matches.add(origin_matches[i])
-                                if origin_matches[j] not in bound_matches:
-                                    bound_matches.add(origin_matches[j])
-
-                        if bound_matches not in new_list:
-                            new_list.append(list(bound_matches))
-                    
-                res = []
-                [res.append(x) for x in new_list if x not in res]
-                return res
-            
-            def find_matching_vertices(object_list, vertex_tolerance):
-                new_list = []
+                match = 0
                 max_search_verts = bpy.context.scene.maxSearchVerts
+                grouped_objects = {}  # To keep track of which objects are grouped together
 
-                for obj_set in object_list:
-                    
-                    for i, obj1 in enumerate(obj_set):
-                        overlapping_objects = set() 
-                        for j, obj2 in enumerate(obj_set):
-                            if i != j:
-                                vertices1 = [obj1.matrix_world @ Vector(v.co) for v in obj1.data.vertices[:max_search_verts]]
-                                vertices2 = [obj2.matrix_world @ Vector(v.co) for v in obj2.data.vertices[:max_search_verts]]
+                for name1, data1 in all_bounds.items():
 
-                                overlap = False
-                                for v1 in vertices1:
-                                    for v2 in vertices2:
-                                        if (v1 - v2).length <= vertex_tolerance:
-                                            overlap = True
-                                            break
+                    if name1 not in grouped_objects:
+                        group = [name1]
+                        shared_origin = data1[1]  # Origin of the first object in the group. Close enough to use as key for shared objects
+
+                        for name2, data2 in all_bounds.items():
+                            if name1 != name2 and name2 not in grouped_objects:
+                                bounds1, origin1, object1 = data1
+                                bounds2, origin2, object2 = data2
+                                object2 = data2[2]
+                                origin_distance = (origin1 - origin2).length
+
+                                if origin_distance <= origin_tolerance:
+                                    overlap = any(
+                                        all(
+                                            abs(v1 - v2) <= bounds_tolerance
+                                            for v1, v2 in zip(bound1, bound2)
+                                        )
+                                        for bound1, bound2 in zip(bounds1, bounds2)
+                                    )
+
                                     if overlap:
-                                        break
+                                        vertices1 = [object1.matrix_world @ Vector(v.co) for v in object1.data.vertices[:max_search_verts]]
+                                        vertices2 = [object2.matrix_world @ Vector(v.co) for v in object2.data.vertices[:max_search_verts]]
+                                        ver_overlap = False
+                                        for v1 in vertices1:
+                                            for v2 in vertices2:
+                                                if (v1 - v2).length <= vertex_tolerance:
+                                                    overlap = True
+                                                    break
+                                            if ver_overlap:
+                                                break
 
-                                if overlap:
-                                    overlapping_objects.add(obj1)
-                                    overlapping_objects.add(obj2)
+                                    if overlap and vert_tolerance:
+                                        group.append(name2)
+                                        grouped_objects[name2] = True
+                                        shared_origin = shared_origin
 
-                        new_list.append(list(overlapping_objects))
+                        if len(group) > 1:
+                            match += 1
+                            match_key = f"Match: {match} - Origin: {shared_origin}"
+                            matching_bounds[match_key] = group
 
-                return new_list
+                return matching_bounds
+            
+            matching_origins = find_origins(obj_list, origin_tolerance)
+            matching_bounds = find_bounds_verts(matching_origins, origin_tolerance, bounds_tolerance, vert_tolerance)
 
-            matching_origins = find_matching_origin(obj_list, origin_tolerance)
-            matching_bounds = find_matching_bounds(matching_origins, bounds_tolerance)
-            matching_vertex = find_matching_vertices(matching_bounds, vert_tolerance)
+            return matching_bounds
 
-            return matching_vertex
+        def find_most_verts(overlapping_objs):
 
-        search_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH' and obj.users_collection[0].name != "_Overlapping"]
-    
-        overlapping_objs = check_overlap(search_objects)
+            for obj_name, matches in overlapping_objs.items():
+                object_with_highest_vertex_count = None
+                highest_vertex_count = 0
 
-        if overlapping_objs:
-            collectionFound = False
-            most_geometry_obj = None
+                for match_obj_name in matches:
+                    obj = bpy.data.objects[match_obj_name]
+                    vertex_count = len(obj.data.vertices)
+                    if vertex_count >= highest_vertex_count:
+                        highest_vertex_count = vertex_count
+                        object_with_highest_vertex_count = obj
 
-            if most_geometry_obj in overlapping_objs:
-                overlapping_objs.remove(most_geometry_obj)
+                overlapping_objs[obj_name] = [overlapping_objs[obj_name], object_with_highest_vertex_count]
 
-            for myCol in bpy.data.collections:
-                if myCol.name == overlap_collection_name:
-                    collectionFound = True
-                    break
+            return overlapping_objs
 
-            overlapping_objs = list(filter(lambda x: x != [], overlapping_objs))
-            if collectionFound == False and not len(overlapping_objs) == 0:
-                MakeCollections(overlap_collection_name, "COLOR_06", context.scene.my_settings.overlapVis)
+        def move_to_collections(matches_dict):
+            overlap_collection_name = "_Overlapping"
+            overlapping_obj_names = []
+            exclude_objs = []
+            
+            for keys in matches_dict:
+                overlapping_obj_names.append(matches_dict[keys][0])
+                exclude_objs.append(matches_dict[keys][1])
+            
+            combined_obj_names = [element for sublist in overlapping_obj_names for element in sublist]
+            
+            if exclude_objs and combined_obj_names:
+                collectionFound = False
 
-            highestLODs = highest_vert_count(overlapping_objs)
+                for myCol in bpy.data.collections:
+                    if myCol.name == overlap_collection_name:
+                        collectionFound = True
+                        break
 
+                if collectionFound == False and len(combined_obj_names) != 0:
+                    MakeCollections(overlap_collection_name, "COLOR_06", context.scene.my_settings.overlapVis)
 
-            print("")
-            print("Highest LOD per Set:")
-            print("")
-            print(highestLODs)
-            print("")
-            print("---------------")
-            print("")
-            print("Overlapping Object Sets:")
-            print("")
-            print(overlapping_objs)
-            print("")
-
-            for group in overlapping_objs:
-                for obj in group:
-                    if obj not in highestLODs:
+                for obj_name in combined_obj_names:
+                    obj = bpy.data.objects[obj_name]
+                    if obj not in exclude_objs:
                         for coll in obj.users_collection:
                             coll.objects.unlink(obj)
                         bpy.data.collections[overlap_collection_name].objects.link(obj)
+
+        search_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH' and obj.users_collection[0].name != "_Overlapping"]
+
+        overlapping_objs = check_objs_overlap(search_objects)
+        highestLODs = find_most_verts(overlapping_objs)
+        move_to_collections(highestLODs)
+
+        print(highestLODs)
 
     def execute(self, context):
         context = bpy.context
