@@ -352,13 +352,16 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
                 rand.enabled = False
 
         if bpy.context.scene.showSceneAdvancedOptionsBool == True:
+
             box = layout.box()
             col = box.column(align=True)
             col.scale_y = 1.1
-
+            col.label(text="Overlap Sorting")
+            col.prop(context.scene, "overlapSortMethod", text="")
             col.prop(context.scene, "maxSearchVerts", text="Vertex Search Depth", slider = True)
+            col.prop(context.scene,'excludeOverlapSort', text ="Disable Overlap in Sort All", toggle = True)
+            col.separator()
             col.prop(context.scene, "volumeCurves_Bool", text="Disable Zero-Volume Checking", invert_checkbox = True ,toggle = True)
-            col.prop(context.scene,'excludeOverlapSort', text ="Disable Overlap for Sort All", toggle = True)
             col.prop(context.scene,'iconOnly_Bool', text ="Disable Button Text in Outliner", toggle = True)
             
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
@@ -752,19 +755,30 @@ class DarrowSetOverlap(bpy.types.Operator):
             return matching_bounds
 
         def find_most_verts(overlapping_objs):
+            sortMethod = context.scene.overlapSortMethod
 
             for obj_name, matches in overlapping_objs.items():
                 object_with_highest_vertex_count = None
                 highest_vertex_count = 0
+                object_with_lowest_vertex_count = None
+                lowest_vertex_count = float('inf') 
 
                 for match_obj_name in matches:
                     obj = bpy.data.objects[match_obj_name]
                     vertex_count = len(obj.data.vertices)
-                    if vertex_count >= highest_vertex_count:
-                        highest_vertex_count = vertex_count
-                        object_with_highest_vertex_count = obj
 
-                overlapping_objs[obj_name] = [overlapping_objs[obj_name], object_with_highest_vertex_count]
+                    if sortMethod == "Highest":
+                        if vertex_count >= highest_vertex_count:
+                            highest_vertex_count = vertex_count
+                            object_with_highest_vertex_count = obj
+
+                    if sortMethod == "Lowest":
+                        if vertex_count <= lowest_vertex_count:
+                            lowest_vertex_count = vertex_count
+                            object_with_lowest_vertex_count = obj 
+
+
+                    overlapping_objs[obj_name] = [matches, object_with_highest_vertex_count, object_with_lowest_vertex_count]
 
             return overlapping_objs
 
@@ -787,7 +801,14 @@ class DarrowSetOverlap(bpy.types.Operator):
             bpy.ops.ed.undo_push()
             
             for match_key, data_list in matches_dict.items():
-                child_collection_name = "Match: " +  str(data_list[1].name)
+                sortMethod = context.scene.overlapSortMethod
+                if sortMethod == "Highest":
+                    name = str(data_list[1].name)
+                            
+                if sortMethod == "Lowest":
+                    name = str(data_list[2].name)
+                       
+                child_collection_name = "Match: " +  name
                 if child_collection_name not in bpy.data.collections:
                     child_collection = bpy.data.collections.new(child_collection_name)
                     bpy.data.collections[child_collection_name].color_tag = 'COLOR_08'
@@ -796,14 +817,31 @@ class DarrowSetOverlap(bpy.types.Operator):
                     child_collection = bpy.data.collections[child_collection_name]
                
                 objects_to_link = data_list[0]
-                
+
                 for obj_name in objects_to_link:
                     obj = bpy.data.objects.get(obj_name)
-                    if obj and obj != data_list[1]:
-                        for coll in obj.users_collection:
-                            coll.objects.unlink(obj)
-                        child_collection.objects.link(obj)
-                
+                    if sortMethod == "Highest":
+                        if obj and obj != data_list[1]: #data_list[1] is highest vert count object
+                            for coll in obj.users_collection:
+                                coll.objects.unlink(obj)
+                            child_collection.objects.link(obj)
+                        else:
+                            if "Match:" in obj.users_collection[0].name:
+                                for coll in obj.users_collection:
+                                    coll.objects.unlink(obj)
+                                context.scene.collection.objects.link(obj)
+
+                    if sortMethod == "Lowest":
+                        if obj and obj != data_list[2]: #data_list[2] is lowest vert count object
+                            for coll in obj.users_collection:
+                                coll.objects.unlink(obj)
+                            child_collection.objects.link(obj)
+                        else:
+                            if "Match:" in obj.users_collection[0].name:
+                                for coll in obj.users_collection:
+                                    coll.objects.unlink(obj)
+                                context.scene.collection.objects.link(obj)
+
             bpy.ops.ed.undo_push()
             bpy.context.view_layer.update()
 
@@ -1019,6 +1057,15 @@ def register():
     bpy.types.OUTLINER_HT_header.prepend(collapse_pop_up)
 
     bpy.types.Scene.my_settings = bpy.props.PointerProperty(type=OrganizerSettings)
+
+    bpy.types.Scene.overlapSortMethod = bpy.props.EnumProperty(
+        description="Which objects should stay visible and where they are when overlap has been found",
+        default="Highest",
+        items=[
+            ('Highest', 'Keep Highest Visible', 'Most Verts'),
+            ('Lowest', 'Keep Lowest Visible', 'Least Verts'),
+        ],
+    )
 
     bpy.types.Scene.cutterVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
