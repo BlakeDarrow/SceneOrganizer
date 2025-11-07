@@ -19,8 +19,8 @@
 
 import bpy
 import bmesh
-from bpy.props import BoolProperty
-from bpy.types import Menu
+from bpy.props import BoolProperty, CollectionProperty, IntProperty, FloatVectorProperty, StringProperty
+from bpy.types import Menu, PropertyGroup
 import time
 import datetime
 from mathutils import Vector
@@ -48,6 +48,20 @@ def updateWireframeVisibility(self, context):
 
 def updateOverlapVisibility(self, context):
     DarrowToggleOverlap.execute(self,context)
+
+class StoredPosition(PropertyGroup):
+    """Stores a single position (Vec3)"""
+    position: FloatVectorProperty(
+        name="Position",
+        description="Stored 3D position",
+        size=3,
+        default=(0.0, 0.0, 0.0)
+    )
+    name: StringProperty(
+        name="Name",
+        description="Name for this position slot",
+        default="Position"
+    )
 
 def toggle_expand(context, state):
     area = next(a for a in context.screen.areas if a.type == 'OUTLINER')
@@ -351,6 +365,47 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         if scn.my_settings.materialVis == True:
                 rand.enabled = False
 
+        # Position Storage Section
+        col = layout.column(align=True)
+        col.label(text="Position Storage")
+        col_1 = layout.box().column()
+        col_1.scale_y = 1.1
+        
+        obj = context.active_object
+        if obj is not None:
+            panel = col_1.column(align=True)
+            
+            # Add/Remove buttons
+            row = panel.row(align=True)
+            row.operator("organizer.add_position_slot", text="", icon='ADD')
+            row.operator("organizer.remove_position_slot", text="", icon='REMOVE')
+            
+            # Display stored positions
+            if len(obj.stored_positions) > 0:
+                panel.separator()
+                for idx, stored_pos in enumerate(obj.stored_positions):
+                    row = panel.row(align=True)
+                    
+                    # Editable name field
+                    row.prop(stored_pos, "name", text="")
+                    
+                    # Store button
+                    store_op = row.operator("organizer.store_position", text="", icon='EXPORT')
+                    store_op.index = idx
+                    
+                    # Retrieve button
+                    retrieve_op = row.operator("organizer.retrieve_position", text="", icon='IMPORT')
+                    retrieve_op.index = idx
+                    
+                    # Display position
+                    sub = panel.row(align=True)
+                    sub.scale_y = 0.8
+                    sub.label(text=f"  ({stored_pos.position[0]:.3f}, {stored_pos.position[1]:.3f}, {stored_pos.position[2]:.3f})")
+            else:
+                panel.label(text="No position slots. Click + to add.", icon='INFO')
+        else:
+            col_1.label(text="Select an object", icon='ERROR')
+
         if bpy.context.scene.showSceneAdvancedOptionsBool == True:
 
             box = layout.box()
@@ -375,6 +430,81 @@ class ORGANIZER_OT_Dummy(bpy.types.Operator):
         return False
 
     def execute(self, context):
+        return {'FINISHED'}
+
+class ORGANIZER_OT_StorePosition(bpy.types.Operator):
+    bl_idname = "organizer.store_position"
+    bl_label = "Store Position"
+    bl_description = "Store the current object's position"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    index: IntProperty()
+
+    def execute(self, context):
+        obj = context.active_object
+        if obj is None:
+            self.report({'WARNING'}, "No active object")
+            return {'CANCELLED'}
+        
+        if self.index >= len(obj.stored_positions):
+            self.report({'WARNING'}, "Invalid index")
+            return {'CANCELLED'}
+        
+        obj.stored_positions[self.index].position = obj.location
+        self.report({'INFO'}, f"Stored position: {obj.location}")
+        return {'FINISHED'}
+
+class ORGANIZER_OT_RetrievePosition(bpy.types.Operator):
+    bl_idname = "organizer.retrieve_position"
+    bl_label = "Retrieve Position"
+    bl_description = "Set the current object's position to the stored value"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    index: IntProperty()
+
+    def execute(self, context):
+        obj = context.active_object
+        if obj is None:
+            self.report({'WARNING'}, "No active object")
+            return {'CANCELLED'}
+        
+        if self.index >= len(obj.stored_positions):
+            self.report({'WARNING'}, "Invalid index")
+            return {'CANCELLED'}
+        
+        obj.location = obj.stored_positions[self.index].position
+        self.report({'INFO'}, f"Retrieved position: {obj.location}")
+        return {'FINISHED'}
+
+class ORGANIZER_OT_AddPositionSlot(bpy.types.Operator):
+    bl_idname = "organizer.add_position_slot"
+    bl_label = "Add Position Slot"
+    bl_description = "Add a new position storage slot"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        obj = context.active_object
+        if obj is None:
+            self.report({'WARNING'}, "No active object")
+            return {'CANCELLED'}
+        
+        obj.stored_positions.add()
+        return {'FINISHED'}
+
+class ORGANIZER_OT_RemovePositionSlot(bpy.types.Operator):
+    bl_idname = "organizer.remove_position_slot"
+    bl_label = "Remove Position Slot"
+    bl_description = "Remove the last position storage slot"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        obj = context.active_object
+        if obj is None:
+            self.report({'WARNING'}, "No active object")
+            return {'CANCELLED'}
+        
+        if len(obj.stored_positions) > 0:
+            obj.stored_positions.remove(len(obj.stored_positions) - 1)
         return {'FINISHED'}
 
 class DarrowSort(bpy.types.Operator):
@@ -1037,7 +1167,9 @@ def sceneDropdown(self, context):
     layout = self.layout
     layout.operator('darrow.organizer_popup_callback', icon="RESTRICT_VIEW_ON", text = "Scene Organizer")
 
-classes = (ORGANIZER_OT_Dummy,DARROW_PT_organizePanel,OrganizerSettings,DarrowSort,
+classes = (ORGANIZER_OT_Dummy,StoredPosition,ORGANIZER_OT_StorePosition,ORGANIZER_OT_RetrievePosition,
+            ORGANIZER_OT_AddPositionSlot,ORGANIZER_OT_RemovePositionSlot,
+            DARROW_PT_organizePanel,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
             DarrowToggleCutters, DarrowCollapseOutliner, DarrowToggleOverlap, DarrowSetOverlap, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
             SceneOrganizerPopUpCallback,DARROW_MT_organizerPie,DarrowSetAllCollections, DarrowClearAnnotate)
@@ -1170,11 +1302,17 @@ def register():
         soft_max = 2
     )
 
+    # Register stored positions on objects
+    bpy.types.Object.stored_positions = CollectionProperty(type=StoredPosition)
+
 def unregister():
 
     for km, kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
     addon_keymaps.clear()
+
+    # Unregister stored positions
+    del bpy.types.Object.stored_positions
 
     for cls in classes:
         bpy.utils.unregister_class(cls)
