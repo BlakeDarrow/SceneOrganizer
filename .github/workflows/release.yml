@@ -11,7 +11,7 @@ jobs:
       - uses: montudor/action-zip@v1
         with:
           args: zip -qq -r SceneOrganizer.zip SceneOrganizer
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: SceneOrganizer
           path: SceneOrganizer.zip
@@ -31,7 +31,7 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v3
-        - uses: actions/download-artifact@v2
+        - uses: actions/download-artifact@v4
           with:
             name: SceneOrganizer
         - name: Release
