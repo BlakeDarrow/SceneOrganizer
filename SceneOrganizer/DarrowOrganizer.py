@@ -253,8 +253,12 @@ def toggleCollectionVis(ob, collectionName, bool, parentCollName = None):
 
             bpy.data.collections[parentCollName].hide_viewport = False
 
-    ob.hide_set(bool)
-    ob.hide_set(not bool)
+    try:
+        ob.hide_set(bool)
+        ob.hide_set(not bool)
+    except RuntimeError:
+        # Object is not in the current view layer, skip
+        pass
 
 def MakeCollections(name, color, bool):
     collectionFound = False
@@ -418,6 +422,9 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
             col.separator()
             col.prop(context.scene, "volumeCurves_Bool", text="Disable Zero-Volume Checking", invert_checkbox = True ,toggle = True)
             col.prop(context.scene,'iconOnly_Bool', text ="Disable Button Text in Outliner", toggle = True)
+            col.separator()
+            col.label(text="Visibility Toggle Options")
+            col.prop(context.scene, 'hierarchySearch_Bool', text="Include Hierarchy Searching", toggle=True)
             
 class ORGANIZER_OT_Dummy(bpy.types.Operator):
     bl_idname = "organizer.dummy"
@@ -578,11 +585,37 @@ class DarrowToggleCutters(bpy.types.Operator):
 
     def execute(self, context):
         bpy.context.scene.cutterVis_Bool = not bpy.context.scene.cutterVis_Bool
+        
+        # Track objects we've already toggled to avoid duplicates
+        toggled_objects = set()
 
+        # Toggle cutters in the _Cutters collection
         for ob in bpy.data.objects:
             if ob.type == 'MESH':
                 if ob.display_type == 'BOUNDS' or ob.display_type == 'WIRE':
                     toggleCollectionVis(ob, "_Cutters", bpy.context.scene.cutterVis_Bool)
+                    toggled_objects.add(ob.name)
+        
+        # If hierarchy search is enabled, search through all boolean modifiers
+        if bpy.context.scene.hierarchySearch_Bool:
+            for ob in bpy.data.objects:
+                if ob.type == 'MESH':
+                    for mod in ob.modifiers:
+                        if mod.type == 'BOOLEAN' and mod.operation == 'DIFFERENCE':
+                            if mod.object and mod.object.name not in toggled_objects:
+                                cutter_obj = mod.object
+                                # Check if it's in the _Cutters collection for proper toggle
+                                if cutter_obj.users_collection and str(cutter_obj.users_collection[0].name) == "_Cutters":
+                                    toggleCollectionVis(cutter_obj, "_Cutters", bpy.context.scene.cutterVis_Bool)
+                                else:
+                                    # Just toggle visibility directly if not in collection
+                                    try:
+                                        cutter_obj.hide_set(bpy.context.scene.cutterVis_Bool)
+                                        cutter_obj.hide_set(not bpy.context.scene.cutterVis_Bool)
+                                    except RuntimeError:
+                                        # Object is not in the current view layer, skip
+                                        pass
+                                toggled_objects.add(cutter_obj.name)
 
         return {'FINISHED'}
 
@@ -609,14 +642,44 @@ class DarrowToggleCurves(bpy.types.Operator):
 
     def execute(self, context):
         bpy.context.scene.curveVis_Bool = not bpy.context.scene.curveVis_Bool
+        
+        # Track objects we've already toggled to avoid duplicates
+        toggled_objects = set()
 
         for ob in bpy.data.objects:
             if ob.type == 'CURVE':
                 if bpy.context.scene.volumeCurves_Bool == True:
                     if curve_to_mesh(context, ob):
                         toggleCollectionVis(ob, "_Curves", bpy.context.scene.curveVis_Bool)
+                        toggled_objects.add(ob.name)
                 else:
                     toggleCollectionVis(ob, "_Curves", bpy.context.scene.curveVis_Bool)
+                    toggled_objects.add(ob.name)
+        
+        # If hierarchy search is enabled, search through all modifiers that use curves
+        if bpy.context.scene.hierarchySearch_Bool:
+            for ob in bpy.data.objects:
+                if ob.type == 'MESH':
+                    for mod in ob.modifiers:
+                        curve_obj = None
+                        # Check modifier types that use curve objects
+                        if mod.type == 'CURVE' and hasattr(mod, 'object') and mod.object:
+                            curve_obj = mod.object
+                        elif mod.type == 'ARRAY' and hasattr(mod, 'curve') and mod.curve:
+                            curve_obj = mod.curve
+                        elif hasattr(mod, 'object') and mod.object and mod.object.type == 'CURVE':
+                            curve_obj = mod.object
+                        
+                        if curve_obj and curve_obj.name not in toggled_objects and curve_obj.type == 'CURVE':
+                            if curve_obj.users_collection and str(curve_obj.users_collection[0].name) == "_Curves":
+                                toggleCollectionVis(curve_obj, "_Curves", bpy.context.scene.curveVis_Bool)
+                            else:
+                                try:
+                                    curve_obj.hide_set(bpy.context.scene.curveVis_Bool)
+                                    curve_obj.hide_set(not bpy.context.scene.curveVis_Bool)
+                                except RuntimeError:
+                                    pass
+                            toggled_objects.add(curve_obj.name)
                    
         return {'FINISHED'}
 
@@ -628,10 +691,32 @@ class DarrowToggleArms(bpy.types.Operator):
 
     def execute(self, context):
         bpy.context.scene.armsVis_Bool = not bpy.context.scene.armsVis_Bool
+        
+        # Track objects we've already toggled to avoid duplicates
+        toggled_objects = set()
 
         for ob in bpy.data.objects:
             if ob.type == 'ARMATURE':
                 toggleCollectionVis(ob, "_Armatures", bpy.context.scene.armsVis_Bool)
+                toggled_objects.add(ob.name)
+        
+        # If hierarchy search is enabled, search through all modifiers that use armatures
+        if bpy.context.scene.hierarchySearch_Bool:
+            for ob in bpy.data.objects:
+                if ob.type == 'MESH':
+                    for mod in ob.modifiers:
+                        if mod.type == 'ARMATURE' and hasattr(mod, 'object') and mod.object:
+                            arm_obj = mod.object
+                            if arm_obj and arm_obj.name not in toggled_objects and arm_obj.type == 'ARMATURE':
+                                if arm_obj.users_collection and str(arm_obj.users_collection[0].name) == "_Armatures":
+                                    toggleCollectionVis(arm_obj, "_Armatures", bpy.context.scene.armsVis_Bool)
+                                else:
+                                    try:
+                                        arm_obj.hide_set(bpy.context.scene.armsVis_Bool)
+                                        arm_obj.hide_set(not bpy.context.scene.armsVis_Bool)
+                                    except RuntimeError:
+                                        pass
+                                toggled_objects.add(arm_obj.name)
                 
         return {'FINISHED'}
 
@@ -643,10 +728,44 @@ class DarrowToggleEmpty(bpy.types.Operator):
 
     def execute(self, context):
         bpy.context.scene.emptyVis_Bool = not bpy.context.scene.emptyVis_Bool
+        
+        # Track objects we've already toggled to avoid duplicates
+        toggled_objects = set()
 
         for ob in bpy.data.objects:
             if ob.type == 'EMPTY' or ob.type == "LATTICE":
                 toggleCollectionVis(ob, "_Empties", bpy.context.scene.emptyVis_Bool)
+                toggled_objects.add(ob.name)
+        
+        # If hierarchy search is enabled, search through all modifiers that use empties
+        if bpy.context.scene.hierarchySearch_Bool:
+            for ob in bpy.data.objects:
+                if ob.type == 'MESH':
+                    for mod in ob.modifiers:
+                        empty_obj = None
+                        # Check various modifier types that use empty/object references
+                        if mod.type == 'ARRAY' and hasattr(mod, 'offset_object') and mod.offset_object:
+                            empty_obj = mod.offset_object
+                        elif mod.type == 'HOOK' and hasattr(mod, 'object') and mod.object:
+                            empty_obj = mod.object
+                        elif mod.type == 'SHRINKWRAP' and hasattr(mod, 'target') and mod.target:
+                            empty_obj = mod.target
+                        elif mod.type == 'CURVE' and hasattr(mod, 'object') and mod.object:
+                            empty_obj = mod.object
+                        elif hasattr(mod, 'object') and mod.object and mod.object.type == 'EMPTY':
+                            empty_obj = mod.object
+                        
+                        if empty_obj and empty_obj.name not in toggled_objects:
+                            if empty_obj.type == 'EMPTY' or empty_obj.type == 'LATTICE':
+                                if empty_obj.users_collection and str(empty_obj.users_collection[0].name) == "_Empties":
+                                    toggleCollectionVis(empty_obj, "_Empties", bpy.context.scene.emptyVis_Bool)
+                                else:
+                                    try:
+                                        empty_obj.hide_set(bpy.context.scene.emptyVis_Bool)
+                                        empty_obj.hide_set(not bpy.context.scene.emptyVis_Bool)
+                                    except RuntimeError:
+                                        pass
+                                toggled_objects.add(empty_obj.name)
 
 class DarrowCollapseOutliner(bpy.types.Operator):
     bl_label = "Collapse Outliner"
@@ -1202,6 +1321,12 @@ def register():
     bpy.types.Scene.cutterVis_Bool = bpy.props.BoolProperty(
         name="Vis Bool",
         description="Toggle visibility of cutters",
+        default=False
+    )
+
+    bpy.types.Scene.hierarchySearch_Bool = bpy.props.BoolProperty(
+        name="Include Hierarchy Searching",
+        description="Also toggle visibility of objects used in modifiers (boolean cutters, curve objects, armature objects, array offsets, etc.)",
         default=False
     )
 
