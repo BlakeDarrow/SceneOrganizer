@@ -55,6 +55,9 @@ def updateWireframeVisibility(self, context):
 def updateOverlapVisibility(self, context):
     DarrowToggleOverlap.execute(self,context)
 
+def updateBevelsVisibility(self, context):
+    DarrowToggleBevels.execute(self,context)
+
 class StoredPosition(PropertyGroup):
     """Stores a single position (Vec3)"""
     position: FloatVectorProperty(
@@ -325,6 +328,11 @@ class OrganizerSettings(bpy.types.PropertyGroup):
         name = "Overlapping Visibility",
         update = updateOverlapVisibility,
         default=False,
+    )
+    bevelsVis : BoolProperty(
+        name = "Bevels Visibility",
+        update = updateBevelsVisibility,
+        default=True,
     )
 
 class DarrowOrganizePanel():
@@ -615,6 +623,22 @@ class DarrowToggleCutters(bpy.types.Operator):
                                         pass
                                 toggled_objects.add(cutter_obj.name)
 
+        return {'FINISHED'}
+
+class DarrowToggleBevels(bpy.types.Operator):
+    bl_label = "Toggle Bevels"
+    bl_idname = "darrow.toggle_bevels"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "Toggle the visibility of bevel and weighted normal modifiers."
+
+    def execute(self, context):
+        show = context.scene.my_settings.bevelsVis
+        
+        for obj in bpy.context.scene.objects:
+            for mod in obj.modifiers:
+                if mod.type in {'BEVEL', 'WEIGHTED_NORMAL'}:
+                    mod.show_viewport = show
+                   
         return {'FINISHED'}
 
 class DarrowToggleOverlap(bpy.types.Operator):
@@ -1223,7 +1247,7 @@ class DARROW_MT_organizerPie(Menu):
         pie.prop(context.scene.my_settings, 'armsVis',text = "Armatures", toggle=True, icon="ARMATURE_DATA")
         pie.prop(context.scene.my_settings, 'curveVis',text = "Curves", toggle=True, icon="MOD_CURVE")
         pie.prop(context.scene.my_settings, 'overlapVis',text = "Overlap", toggle=True, icon="MESH_CUBE")
-        pie.separator()
+        pie.prop(context.scene.my_settings, 'bevelsVis',text = "Bevels", toggle=True, icon="MOD_BEVEL")
         other = pie.column()
         gap = other.column()
         gap.separator()
@@ -1288,7 +1312,7 @@ classes = (ORGANIZER_OT_Dummy,StoredPosition,ORGANIZER_OT_StorePosition,ORGANIZE
             ORGANIZER_OT_AddPositionSlot,ORGANIZER_OT_RemovePositionSlot,
             DARROW_PT_organizePanel,OrganizerSettings,DarrowSort,
             DarrowRenameSelectedHigh,DarrowRenameSelectedLow,DarrowCleanName,DarrowToggleEmpty,DarrowSetCollectionCutter,
-            DarrowToggleCutters, DarrowCollapseOutliner, DarrowToggleOverlap, DarrowSetOverlap, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
+            DarrowToggleCutters, DarrowCollapseOutliner, DarrowToggleBevels, DarrowToggleOverlap, DarrowSetOverlap, DarrowSetCollection, DarrowWireframe, DarrowSetCurveCollection, DarrowToggleCurves, DarrowToggleArms,DarrowSetArmsCollection,
             SceneOrganizerPopUpCallback,DARROW_MT_organizerPie,DarrowSetAllCollections, DarrowClearAnnotate)
 addon_keymaps = []
 
