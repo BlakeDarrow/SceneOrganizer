@@ -38,10 +38,16 @@ def updateEmptiesVisibility(self, context):
     DarrowToggleEmpty.execute(self,context)
 
 def updateRandomVisibility(self, context):
-    bpy.context.space_data.shading.color_type = 'RANDOM'
+    if self.randomVis:
+        bpy.context.space_data.shading.color_type = 'RANDOM'
+        if self.materialVis:
+            self.materialVis = False
     
 def updateMaterialVisibility(self, context):
-    bpy.context.space_data.shading.color_type = 'MATERIAL'
+    if self.materialVis:
+        bpy.context.space_data.shading.color_type = 'MATERIAL'
+        if self.randomVis:
+            self.randomVis = False
 
 def updateWireframeVisibility(self, context):
     DarrowWireframe.execute(self,context)
@@ -358,16 +364,8 @@ class DARROW_PT_organizePanel(DarrowOrganizePanel, bpy.types.Panel):
         col_1.scale_y = 1.1
         cf4 = panel.column_flow(columns=2, align=True)
         cf4.prop(scn.my_settings, 'materialVis',text = "Material", toggle = True)
-        
-        rand = cf4.column(align=True)
-        rand.prop(scn.my_settings, 'randomVis', text = "Random", toggle = True)
-        mat = panel.row(align=True)
-        mat.prop(scn.my_settings, 'wireframeVis',text = "Wireframe", toggle = True)
-
-        if scn.my_settings.randomVis == True:
-                mat.enabled = False
-        if scn.my_settings.materialVis == True:
-                rand.enabled = False
+        cf4.prop(scn.my_settings, 'randomVis', text = "Random", toggle = True)
+        panel.prop(scn.my_settings, 'wireframeVis',text = "Wireframe", toggle = True)
 
         # Position Storage Section
         col = layout.column(align=True)
